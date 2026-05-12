@@ -2,7 +2,7 @@
 import { html } from "hono/html";
 import type { FC } from "hono/jsx";
 import { VERSION } from "svelte/compiler";
-import styles from "./styles.css?inline";
+import { styles } from "./styles.generated";
 
 export const Shell: FC = () => {
   const sample = `<script>let count = 0;</script>\n<button onclick={() => count += 1}>count: {count}</button>\n<style>button{font:inherit;padding:.5rem 1rem;border-radius:.75rem;background:#ff3e00;color:white}</style>`;

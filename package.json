@@ -13,7 +13,7 @@
     "build": "npm run css && wrangler deploy --dry-run --outdir dist",
     "bench:http": "tsx scripts/bench-http.ts",
     "bench:concurrent": "tsx scripts/bench-concurrent.ts",
-    "css": "tailwindcss -i ./src/input.css -o ./src/styles.css --minify"
+    "css": "tailwindcss -i ./src/input.css -o ./src/styles.css --minify && node scripts/generate-styles.mjs"
   },
   "dependencies": {
     "hono": "^4.12.18",
