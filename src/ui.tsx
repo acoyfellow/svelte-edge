@@ -102,9 +102,9 @@ async function compile(mode) {
 }
 function previewDocument(moduleUrl, css) {
   return '<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">' +
-    '<script type="importmap">' + JSON.stringify({ imports: { 'svelte/': 'https://esm.sh/svelte@${VERSION}/' } }) + '<' + '/script>' +
+    '<script type="importmap">' + JSON.stringify({ imports: { 'svelte': 'https://esm.sh/svelte@${VERSION}', 'svelte/': 'https://esm.sh/svelte@${VERSION}/' } }) + '<' + '/script>' +
     '<style>body{font-family:ui-sans-serif,system-ui;margin:0;padding:2rem;color:#18181b} #app{display:contents}</style><style>' + css.replace(/<\\/style/gi, '<\\\\/style') + '</style></head>' +
-    '<body><div id="app"></div><script type="module">import Component from ' + JSON.stringify(moduleUrl) + '; import { mount } from "svelte"; mount(Component, { target: document.getElementById("app") });<' + '/script></body></html>';
+    '<body><div id="app"></div><script>window.addEventListener("error",e=>{document.body.insertAdjacentHTML("beforeend","<pre style=\\"color:red\\">"+e.message+"</pre>")});<' + '/script><script type="module">import Component from ' + JSON.stringify(moduleUrl) + '; import { mount } from "svelte"; mount(Component, { target: document.getElementById("app") });<' + '/script></body></html>';
 }
 async function runPreview() {
   const json = await compile('client');
