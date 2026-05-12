@@ -49,7 +49,7 @@ export const Shell: FC = () => {
                   <span id="meta" class="text-xs text-zinc-500">idle</span>
                 </div>
                 <div id="panel-preview" class="panel h-[440px] bg-white">
-                  <iframe id="preview" sandbox="allow-scripts" class="h-full w-full bg-white"></iframe>
+                  <iframe id="preview" sandbox="allow-scripts allow-same-origin" class="h-full w-full bg-white"></iframe>
                 </div>
                 <pre id="panel-js" class="panel hidden h-[440px] overflow-auto whitespace-pre-wrap p-4 text-xs leading-5 text-zinc-300"></pre>
                 <pre id="panel-css" class="panel hidden h-[440px] overflow-auto whitespace-pre-wrap p-4 text-xs leading-5 text-zinc-300"></pre>
@@ -57,7 +57,7 @@ export const Shell: FC = () => {
               </section>
 
               <section class="rounded-2xl border border-zinc-800 bg-zinc-900/70 p-4 text-sm text-zinc-400">
-                <p><span class="text-zinc-200">How it works:</span> Worker compiles Svelte client JS. The browser preview uses an iframe, an import map for Svelte runtime modules, and a blob module for the compiled component.</p>
+                <p><span class="text-zinc-200">How it works:</span> Worker compiles Svelte client JS. The browser preview uses an iframe, an import map for Svelte runtime modules, and a data module for the compiled component.</p>
                 <p class="mt-2"><span class="text-zinc-200">API:</span> POST <code class="text-orange-300">/compile?mode=client|server</code></p>
               </section>
             </div>
