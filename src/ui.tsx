@@ -256,23 +256,62 @@ const TutorialPage: FC = () => (
   <article class="doc-body">
     <p class="system-label">GET STARTED</p>
     <h2>Your first edge widget</h2>
-    <p>By the end of this tutorial you will compile, preview and render a Svelte component using svelte-edge. We assume you can read Svelte and have a terminal open.</p>
-    <h3>1. Start the worker</h3>
-    <p>From the repo root run <code>npm run dev</code>. Wrangler boots a local Worker and prints a URL. Open it: you should see the playground.</p>
-    <h3>2. Compile a component</h3>
-    <p>Replace the editor contents with the counter from <a href="/examples/counter">the counter example</a> and click <strong>Run</strong>. Three things happened:</p>
-    <ol>
-      <li>The Worker compiled your source with the Svelte compiler.</li>
-      <li>It hashed the source and stored client+server JS in KV (when bound).</li>
-      <li>It returned an artifact manifest with URLs you can <code>curl</code>.</li>
-    </ol>
-    <h3>3. Render server-side</h3>
-    <p>Open a terminal and run:</p>
-    <pre class="code-panel">curl -sX POST http://localhost:8787/render?format=html \\{"\n"}  -H "content-type: text/plain" \\{"\n"}  --data-binary @- {"<"}{"<"} 'EOF'{"\n"}{`<script>let { name = "edge" } = $props();</script>\n<h1>hello, {name}</h1>`}{"\n"}EOF</pre>
-    <p>The Worker compiled your component to SSR output, evaluated it in the isolate, and returned a fully rendered HTML document. No client JS required.</p>
-    <h3>4. Inspect the artifacts</h3>
-    <p>Click the <strong>Artifacts</strong> tab in the playground. Each row is a real URL you can share, cache, or embed.</p>
-    <p>Next: read the <a href="/docs/reference-api">API reference</a>.</p>
+    <p class="lead">Build a tiny Svelte component, compile it on a Worker, preview it in the browser, and copy the generated artifact URLs.</p>
+
+    <div class="callout"><strong>You will make:</strong><ul><li>a live preview</li><li>a <code>client.js</code> module</li><li>a <code>style.css</code> file</li><li>a <code>manifest.json</code> with timings and sizes</li></ul></div>
+
+    <h3>1. Start local dev</h3>
+    <pre class="code-panel">cd svelte-edge
+npm install
+npm run dev</pre>
+    <p>Open the local URL Wrangler prints. The playground starts with a counter component.</p>
+
+    <h3>2. Paste a component</h3>
+    <p>Try this component. It has state, markup, and scoped CSS in one file:</p>
+    <pre class="code-panel">{`<script>
+  let count = 0;
+</script>
+
+<button onclick={() => count += 1}>
+  count: {count}
+</button>
+
+<style>
+  button {
+    font: 700 16px system-ui;
+    padding: 12px 18px;
+    border: 0;
+    border-radius: 12px;
+    background: #ff5a1f;
+    color: white;
+  }
+</style>`}</pre>
+
+    <h3>3. Click Run</h3>
+    <p>The browser sends your Svelte source to <code>POST /artifacts</code>. The Worker compiles both client and server output and returns a manifest.</p>
+    <ul><li><strong>Preview</strong> mounts the client artifact in a sandboxed iframe.</li><li><strong>Artifacts</strong> shows URLs for generated files.</li><li><strong>Trace</strong> shows the full JSON response.</li></ul>
+
+    <h3>4. Use the output</h3>
+    <p>For an iframe embed, copy <code>preview.html</code> from the Artifacts tab:</p>
+    <pre class="code-panel">{`<iframe
+  src="https://svelte-edge.coy.workers.dev/artifacts/<hash>/preview.html"
+  style="border:0;width:100%;height:240px"
+></iframe>`}</pre>
+    <p>For a module import, use <code>client.js</code> and Svelte's runtime mount API:</p>
+    <pre class="code-panel">{`<div id="widget"></div>
+<script type="importmap">
+{
+  "imports": {
+    "svelte": "https://esm.sh/svelte@5.55.5",
+    "svelte/": "https://esm.sh/svelte@5.55.5/"
+  }
+}
+</script>
+<script type="module">
+  import Widget from "https://svelte-edge.coy.workers.dev/artifacts/<hash>/client.js";
+  import { mount } from "svelte";
+  mount(Widget, { target: document.getElementById("widget") });
+</script>`}</pre>
   </article>
 );
 
@@ -280,21 +319,48 @@ const ReferencePage: FC = () => (
   <article class="doc-body">
     <p class="system-label">API</p>
     <h2>HTTP API reference</h2>
-    <p>All routes accept and emit JSON unless otherwise noted. Source bodies may be sent as <code>text/plain</code> or as a <code>source</code> form field. Source must be ≤ 256 KiB.</p>
-    <h3>GET /health</h3>
-    <p>Returns <code>{`{ ok: true, svelte, requestId }`}</code>. Use this for liveness checks.</p>
-    <h3>POST /compile?mode=client|server</h3>
-    <p>Compiles the supplied Svelte source. Returns JS, CSS, byte sizes, warnings, and timing. Results are cached in KV by content hash for 24 hours.</p>
+    <p class="lead">The API is intentionally small: compile source, create artifacts, and read artifacts back by hash.</p>
+
+    <h3>Limits</h3>
+    <ul><li>Source body: <code>256 KiB</code></li><li>Props query for SSR: <code>32 KiB</code></li><li>Svelte compiler: <code>5.55.5</code></li><li>Artifact URL persistence requires <code>SVELTE_EDGE_CACHE</code></li></ul>
+
     <h3>POST /artifacts</h3>
-    <p>Compiles both client and server output, persists the source by hash, and returns a manifest with URLs for <code>client.js</code>, <code>server.js</code>, <code>style.css</code>, <code>preview.html</code>, and <code>manifest.json</code>. Requires the KV binding.</p>
-    <h3>GET /artifacts/{`<hash>`}/{`<file>`}</h3>
-    <p>Serves a previously compiled artifact. <code>file</code> is one of <code>client.js</code>, <code>server.js</code>, <code>style.css</code>, <code>preview.html</code>, <code>manifest.json</code>. 404s when the hash is unknown.</p>
-    <h3>POST /render?format=html&amp;props=…</h3>
-    <p>Compiles to SSR output, evaluates it in the isolate, and returns rendered HTML (with <code>format=html</code>) or a JSON envelope with <code>html</code>, <code>head</code> and timings. <code>props</code> is a URL-encoded JSON object ≤ 32 KiB.</p>
-    <h3>GET /examples and /examples/:slug</h3>
-    <p>Static, server-rendered catalog of the bundled examples. Each example is also reachable via <code>/?example=:slug</code> in the playground.</p>
-    <h3>GET /docs and /docs/:slug</h3>
-    <p>This site.</p>
+    <p>Use this when you want a preview plus addressable outputs.</p>
+    <pre class="code-panel">{`curl -sX POST https://svelte-edge.coy.workers.dev/artifacts \\
+  -H "content-type: text/plain" \\
+  --data '<h1>Hello edge</h1>'`}</pre>
+    <p>Response shape:</p>
+    <pre class="code-panel">{`{
+  "id": "a0d436a1c36e",
+  "sourceHash": "a0d436...",
+  "svelte": "5.55.5",
+  "cache": { "client": "miss", "server": "miss" },
+  "artifacts": {
+    "client": ".../client.js",
+    "server": ".../server.js",
+    "css": ".../style.css",
+    "preview": ".../preview.html",
+    "manifest": ".../manifest.json"
+  },
+  "sizes": { "clientJs": 281, "serverJs": 150, "css": 0 },
+  "timings": { "clientCompileMs": 0, "serverCompileMs": 0 }
+}`}</pre>
+
+    <h3>POST /compile?mode=client|server</h3>
+    <p>Use this when you only need one compile output.</p>
+    <pre class="code-panel">{`curl -sX POST 'https://svelte-edge.coy.workers.dev/compile?mode=client' \\
+  -H "content-type: text/plain" \\
+  --data '<button>hello</button>'`}</pre>
+
+    <h3>GET /artifacts/&lt;hash&gt;/&lt;file&gt;</h3>
+    <p>Read a generated artifact. Valid files:</p>
+    <ul><li><code>client.js</code> — browser component module</li><li><code>server.js</code> — SSR compiler output</li><li><code>style.css</code> — scoped CSS</li><li><code>preview.html</code> — standalone iframe document</li><li><code>manifest.json</code> — metadata</li></ul>
+
+    <h3>POST /render</h3>
+    <p>Experimental SSR path. Useful for testing server output, but not the main embed path.</p>
+    <pre class="code-panel">{`curl -sX POST 'https://svelte-edge.coy.workers.dev/render?format=html' \\
+  -H "content-type: text/plain" \\
+  --data '<h1>Hello SSR</h1>'`}</pre>
   </article>
 );
 
@@ -302,15 +368,52 @@ const ExplanationPage: FC = () => (
   <article class="doc-body">
     <p class="system-label">WHY</p>
     <h2>Artifacts, not a REPL</h2>
-    <p>The Svelte REPL is a great teaching tool. svelte-edge is for a different job: turning source into URLs you can inspect, copy, embed, cache, and eventually deploy.</p>
-    <h3>Sources hash to URLs</h3>
-    <p>When you POST a component to <code>/artifacts</code>, the Worker hashes the source with SHA-256. Compiled client and server outputs are cached in KV under that hash, and the response is a manifest of stable URLs. Two people compiling the same component get the same URLs.</p>
-    <h3>The Worker is the build system</h3>
-    <p>Most Svelte setups compile at build time on a developer laptop. svelte-edge compiles on demand at request time, anywhere Cloudflare runs. The compiler is small enough to ship inside the Worker bundle; KV caches the output so each unique source pays the compile cost exactly once.</p>
-    <h3>SSR is a stricter test of correctness</h3>
-    <p>If a component renders correctly through <code>/render</code> — where there is no DOM, no event loop tricks, no browser-only globals — it tends to render correctly everywhere. The route exists partly as a forcing function for the project.</p>
-    <h3>What this is not</h3>
-    <p>This is not a replacement for the Svelte Playground. It is a small experiment in moving the compile step to Cloudflare Workers and treating the output as addressable edge artifacts.</p>
+    <p class="lead">The Svelte Playground is for learning and experimenting. svelte-edge is for giving agents and apps a way to turn Svelte source into URLs they can use immediately.</p>
+
+    <h3>The useful primitive</h3>
+    <pre class="code-panel">{`Svelte source
+  → Cloudflare Worker compiler
+  → client.js + server.js + style.css + preview.html + manifest.json
+  → share, embed, cache, or hand to an agent`}</pre>
+
+    <h3>Why this matters for agents</h3>
+    <p>A small browser model like <code>window.ai</code> can write Svelte on demand, call <code>/artifacts</code>, and return an inline UI instead of a wall of text.</p>
+    <ul><li>Need a calculator? The agent generates a live calculator.</li><li>Need a review screen? The agent generates checkboxes and a submit button.</li><li>Need to explain data? The agent generates a tiny dashboard.</li></ul>
+
+    <h3>Minimal agent flow</h3>
+    <pre class="code-panel">{`const source = await window.ai.prompt(
+  "Write a Svelte component for a pricing calculator. Return only .svelte source."
+);
+
+const artifact = await fetch("https://svelte-edge.coy.workers.dev/artifacts", {
+  method: "POST",
+  headers: { "content-type": "text/plain" },
+  body: source
+}).then(r => r.json());
+
+chat.render({
+  type: "iframe",
+  src: artifact.artifacts.preview
+});`}</pre>
+
+    <h3>Two-way generated UI</h3>
+    <p>The next step is a convention for agent-generated components to send structured results back to the host app:</p>
+    <pre class="code-panel">{`<script>
+  let region = 'wnam';
+  let plan = 'paid';
+
+  function submit() {
+    parent.postMessage({
+      type: 'svelte-edge:submit',
+      value: { region, plan }
+    }, '*');
+  }
+</script>
+
+<button onclick={submit}>Use these settings</button>`}</pre>
+
+    <h3>What makes this different</h3>
+    <p>The output is not tied to a playground session. It is an artifact graph with stable names and a manifest. That makes it easier to embed in chat, docs, dashboards, CMS previews, or future Dynamic Worker deploys.</p>
   </article>
 );
 
