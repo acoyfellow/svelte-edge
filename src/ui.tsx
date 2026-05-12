@@ -14,113 +14,84 @@ export const Shell: FC = () => {
         <title>svelte-edge playground</title>
         <style>{styles}</style>
       </head>
-      <body class="min-h-screen bg-zinc-950 text-zinc-100">
-        <main class="mx-auto flex min-h-screen max-w-7xl flex-col gap-6 p-4 md:p-8">
-          <header class="flex flex-col gap-3 border-b border-zinc-800 pb-6 md:flex-row md:items-end md:justify-between">
+      <body class="min-h-screen">
+        <main class="mx-auto max-w-6xl p-4 md:p-8">
+          <header class="simple-hero">
             <div>
-              <p class="text-sm font-medium uppercase tracking-[0.3em] text-orange-400">Svelte on Workers</p>
-              <h1 class="mt-2 text-4xl font-semibold tracking-tight md:text-6xl">svelte-edge</h1>
-              <p class="mt-3 max-w-2xl text-zinc-400">Compile Svelte {VERSION} on a Cloudflare Worker, then render the result in a sandboxed browser preview.</p>
+              <p class="system-label">SVELTE EDGE</p>
+              <h1>Compile Svelte on the edge.</h1>
+              <p>Type a component. Cloudflare Workers compile it. The browser renders it. The result becomes addressable edge artifacts.</p>
             </div>
-            <a class="rounded-full border border-zinc-700 px-4 py-2 text-sm text-zinc-300 hover:border-orange-400 hover:text-orange-300" href="https://github.com/acoyfellow/svelte-edge">GitHub</a>
+            <a class="github-icon" href="https://github.com/acoyfellow/svelte-edge" aria-label="GitHub"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 .5a12 12 0 0 0-3.79 23.39c.6.11.82-.26.82-.58v-2.02c-3.34.73-4.04-1.61-4.04-1.61-.55-1.39-1.34-1.76-1.34-1.76-1.09-.75.08-.73.08-.73 1.2.08 1.84 1.24 1.84 1.24 1.07 1.83 2.81 1.3 3.49.99.11-.78.42-1.3.76-1.6-2.67-.3-5.47-1.34-5.47-5.95 0-1.31.47-2.39 1.24-3.23-.12-.3-.54-1.52.12-3.18 0 0 1.01-.32 3.3 1.23a11.5 11.5 0 0 1 6 0c2.29-1.55 3.3-1.23 3.3-1.23.66 1.66.24 2.88.12 3.18.77.84 1.23 1.92 1.23 3.23 0 4.62-2.81 5.64-5.49 5.94.43.37.81 1.1.81 2.22v3.29c0 .32.22.7.83.58A12 12 0 0 0 12 .5Z"/></svg></a>
           </header>
 
-          <section class="grid flex-1 gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
-            <div class="flex min-h-[640px] flex-col overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-900/70 shadow-2xl">
-              <div class="flex items-center justify-between border-b border-zinc-800 px-4 py-3">
-                <h2 class="font-medium">Source</h2>
-                <div class="flex gap-2">
-                  <button id="run-preview" class="rounded-lg bg-orange-500 px-3 py-1.5 text-sm font-medium text-white hover:bg-orange-400">Run preview</button>
-                  <button id="compile-server" class="rounded-lg border border-zinc-700 px-3 py-1.5 text-sm text-zinc-200 hover:border-zinc-500">Server JS</button>
-                </div>
-              </div>
-              <textarea id="source" spellCheck={false} class="flex-1 resize-none bg-zinc-950 p-4 font-mono text-sm leading-6 text-zinc-100 outline-none">{sample}</textarea>
+          <section class="playground-card mt-6">
+            <div class="card-head">
+              <div><p class="system-label">SOURCE</p><h2>Svelte component</h2></div>
+              <div class="actions"><button id="run-preview" class="primary-button">Run</button><button id="compile-server" class="secondary-button">Server JS</button></div>
             </div>
+            <textarea id="source" spellCheck={false} class="source-editor" rows={4}>{sample}</textarea>
+          </section>
 
-            <div class="grid min-h-[640px] grid-rows-[auto_1fr_auto] gap-4">
-              <section class="overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-900/70">
-                <div class="flex items-center justify-between border-b border-zinc-800 px-4 py-3">
-                  <div class="flex gap-2 text-sm">
-                    <button data-tab="preview" class="tab rounded-md bg-zinc-800 px-3 py-1 text-zinc-100">Preview</button>
-                    <button data-tab="js" class="tab rounded-md px-3 py-1 text-zinc-400 hover:text-zinc-100">JS</button>
-                    <button data-tab="css" class="tab rounded-md px-3 py-1 text-zinc-400 hover:text-zinc-100">CSS</button>
-                    <button data-tab="diagnostics" class="tab rounded-md px-3 py-1 text-zinc-400 hover:text-zinc-100">Diagnostics</button>
-                  </div>
-                  <span id="meta" class="text-xs text-zinc-500">idle</span>
-                </div>
-                <div id="panel-preview" class="panel h-[440px] bg-white">
-                  <iframe id="preview" sandbox="allow-scripts" class="h-full w-full bg-white"></iframe>
-                </div>
-                <pre id="panel-js" class="panel hidden h-[440px] overflow-auto whitespace-pre-wrap p-4 text-xs leading-5 text-zinc-300"></pre>
-                <pre id="panel-css" class="panel hidden h-[440px] overflow-auto whitespace-pre-wrap p-4 text-xs leading-5 text-zinc-300"></pre>
-                <pre id="panel-diagnostics" class="panel hidden h-[440px] overflow-auto whitespace-pre-wrap p-4 text-xs leading-5 text-zinc-300">Click Run preview.</pre>
-              </section>
-
-              <section class="rounded-2xl border border-zinc-800 bg-zinc-900/70 p-4 text-sm text-zinc-400">
-                <p><span class="text-zinc-200">How it works:</span> Worker compiles Svelte client JS. The browser preview uses an iframe, an import map for Svelte runtime modules, and a data module for the compiled component.</p>
-                <p class="mt-2"><span class="text-zinc-200">API:</span> POST <code class="text-orange-300">/compile?mode=client|server</code></p>
-              </section>
+          <section class="playground-card mt-4 overflow-hidden">
+            <div class="card-head">
+              <div><p class="system-label">RESULT</p><h2 id="status-readout">Preview</h2></div>
+              <div class="result-meta"><span id="compile-readout">Svelte {VERSION}</span><span id="roundtrip-readout">idle</span><span id="payload-readout">—</span></div>
             </div>
+            <div class="tabs"><button data-tab="preview" class="tab active-tab">Preview</button><button data-tab="artifacts" class="tab">Artifacts</button><button data-tab="js" class="tab">Client JS</button><button data-tab="css" class="tab">CSS</button><button data-tab="diagnostics" class="tab">Trace</button></div>
+            <div id="panel-preview" class="panel preview-well"><iframe id="preview" sandbox="allow-scripts" class="h-full w-full bg-white"></iframe></div>
+            <div id="panel-artifacts" class="panel artifacts-panel hidden"><div id="artifact-list" class="artifact-list">Run the component to create artifact URLs.</div></div>
+            <pre id="panel-js" class="panel code-panel hidden"></pre>
+            <pre id="panel-css" class="panel code-panel hidden"></pre>
+            <pre id="panel-diagnostics" class="panel code-panel hidden">Run the component to see compiler output.</pre>
           </section>
         </main>
         <script>{html`
 const source = document.getElementById('source');
-const meta = document.getElementById('meta');
 const preview = document.getElementById('preview');
-const panels = {
-  preview: document.getElementById('panel-preview'),
-  js: document.getElementById('panel-js'),
-  css: document.getElementById('panel-css'),
-  diagnostics: document.getElementById('panel-diagnostics')
-};
+const panels = { preview: document.getElementById('panel-preview'), artifacts: document.getElementById('panel-artifacts'), js: document.getElementById('panel-js'), css: document.getElementById('panel-css'), diagnostics: document.getElementById('panel-diagnostics') };
+const artifactList = document.getElementById('artifact-list');
 const tabs = [...document.querySelectorAll('.tab')];
-function show(tab) {
-  for (const [name, el] of Object.entries(panels)) el.classList.toggle('hidden', name !== tab);
-  for (const button of tabs) {
-    const active = button.dataset.tab === tab;
-    button.classList.toggle('bg-zinc-800', active);
-    button.classList.toggle('text-zinc-100', active);
-    button.classList.toggle('text-zinc-400', !active);
-  }
+const statusReadout = document.getElementById('status-readout');
+const compileReadout = document.getElementById('compile-readout');
+const roundtripReadout = document.getElementById('roundtrip-readout');
+const payloadReadout = document.getElementById('payload-readout');
+function autoResize() { source.style.height = 'auto'; source.style.height = Math.max(132, source.scrollHeight) + 'px'; }
+source.addEventListener('input', autoResize);
+function show(tab) { for (const [name, el] of Object.entries(panels)) el.classList.toggle('hidden', name !== tab); for (const button of tabs) button.classList.toggle('active-tab', button.dataset.tab === tab); }
+function artifactRow(name, url, detail) { return '<div class="artifact-row"><div><strong>'+name+'</strong><span>'+detail+'</span></div><div class="artifact-actions"><button data-copy="'+url+'">Copy</button><a href="'+url+'" target="_blank" rel="noreferrer">Open</a></div></div>'; }
+function renderArtifacts(data) {
+  const a = data.artifacts;
+  artifactList.innerHTML = '<div class="artifact-summary"><strong>Artifact '+data.id+'</strong><span>'+data.sourceHash+'</span></div>' +
+    artifactRow('client.js', a.client, data.sizes.clientJs + ' bytes · ' + data.cache.client) +
+    artifactRow('server.js', a.server, data.sizes.serverJs + ' bytes · ' + data.cache.server) +
+    artifactRow('style.css', a.css, data.sizes.css + ' bytes') +
+    artifactRow('preview.html', a.preview, 'openable preview document') +
+    artifactRow('manifest.json', a.manifest, 'artifact metadata');
+  artifactList.querySelectorAll('[data-copy]').forEach(btn => btn.onclick = async () => { await navigator.clipboard.writeText(btn.dataset.copy); btn.textContent = 'Copied'; setTimeout(() => btn.textContent = 'Copy', 900); });
 }
-async function compile(mode) {
-  meta.textContent = 'compiling ' + mode + '...';
+async function createArtifacts() {
   const t0 = performance.now();
-  const res = await fetch('/compile?mode=' + mode, { method: 'POST', headers: { 'content-type': 'text/plain' }, body: source.value });
-  const json = await res.json();
+  const res = await fetch('/artifacts', { method: 'POST', headers: { 'content-type': 'text/plain' }, body: source.value });
+  const data = await res.json();
   const ms = Math.round(performance.now() - t0);
-  panels.diagnostics.textContent = JSON.stringify(json, null, 2);
-  if (!res.ok) {
-    meta.textContent = 'error · ' + ms + 'ms';
-    show('diagnostics');
-    return null;
-  }
-  meta.textContent = json.cache + ' · compile ' + json.compileMs + 'ms · roundtrip ' + ms + 'ms · ' + json.jsBytes + ' bytes';
-  panels.js.textContent = json.js || '';
-  panels.css.textContent = json.css || '/* no css */';
-  return json;
+  panels.diagnostics.textContent = JSON.stringify(data, null, 2);
+  if (!res.ok) { statusReadout.textContent = 'Compile failed'; show('diagnostics'); return null; }
+  statusReadout.textContent = 'Preview live';
+  compileReadout.textContent = 'client ' + data.timings.clientCompileMs + 'ms · server ' + data.timings.serverCompileMs + 'ms';
+  roundtripReadout.textContent = ms + 'ms roundtrip';
+  payloadReadout.textContent = data.sizes.clientJs + ' bytes';
+  panels.js.textContent = data.client.js || '';
+  panels.css.textContent = data.client.css || '/* no css */';
+  renderArtifacts(data);
+  return data;
 }
-function previewDocument(moduleUrl, css) {
-  return '<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">' +
-    '<script type="importmap">' + JSON.stringify({ imports: { 'svelte': 'https://esm.sh/svelte@${VERSION}', 'svelte/': 'https://esm.sh/svelte@${VERSION}/' } }) + '<' + '/script>' +
-    '<style>body{font-family:ui-sans-serif,system-ui;margin:0;padding:2rem;color:#18181b} #app{display:contents}</style><style>' + css.replace(/<\\/style/gi, '<\\\\/style') + '</style></head>' +
-    '<body><div id="app"></div><script type="module">import Component from ' + JSON.stringify(moduleUrl) + '; import { mount } from "svelte"; mount(Component, { target: document.getElementById("app") });<' + '/script></body></html>';
-}
-async function runPreview() {
-  const json = await compile('client');
-  if (!json) return;
-  // Do not use blob: URLs here. A sandboxed srcdoc iframe has an opaque
-  // origin in production browsers, so loading a parent-origin blob URL is
-  // blocked as a local resource. Instead, inline the compiled module in a
-  // data: URL. This keeps the preview self-contained inside the iframe.
-  const moduleUrl = 'data:application/javascript;charset=utf-8,' + encodeURIComponent(json.js);
-  preview.srcdoc = previewDocument(moduleUrl, json.css || '');
-  show('preview');
-}
+function previewDocument(moduleUrl, css) { return '<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">' + '<script type="importmap">' + JSON.stringify({ imports: { 'svelte': 'https://esm.sh/svelte@${VERSION}', 'svelte/': 'https://esm.sh/svelte@${VERSION}/' } }) + '<' + '/script>' + '<style>body{font-family:Inter,ui-sans-serif,system-ui;margin:0;padding:2rem;color:#18181b} #app{display:contents}</style><style>' + css.replace(/<\\/style/gi, '<\\\\/style') + '</style></head>' + '<body><div id="app"></div><script type="module">import Component from ' + JSON.stringify(moduleUrl) + '; import { mount } from "svelte"; mount(Component, { target: document.getElementById("app") });<' + '/script></body></html>'; }
+async function runPreview() { const data = await createArtifacts(); if (!data) return; const moduleUrl = 'data:application/javascript;charset=utf-8,' + encodeURIComponent(data.client.js); preview.srcdoc = previewDocument(moduleUrl, data.client.css || ''); show('preview'); }
 document.getElementById('run-preview').onclick = runPreview;
-document.getElementById('compile-server').onclick = async () => { await compile('server'); show('js'); };
+document.getElementById('compile-server').onclick = async () => { const data = await createArtifacts(); if (data) { panels.js.textContent = data.server.js || ''; show('js'); } };
 for (const tab of tabs) tab.onclick = () => show(tab.dataset.tab);
-runPreview();
+autoResize(); runPreview();
         `}</script>
       </body>
     </html>

@@ -18,6 +18,7 @@ export interface Env {
 export { CacheCoordinator } from "./cache-coordinator";
 
 type CompileMode = "client" | "server";
+type CompiledPayload = { svelte: string; mode: CompileMode; compileMs: number; warnings: Array<{ code: string; message: string }>; jsBytes: number; cssBytes: number; js: string; css: string };
 
 const MAX_SOURCE_BYTES = 256 * 1024; // 256 KiB
 const MAX_PROPS_BYTES = 32 * 1024;   // 32 KiB
@@ -92,6 +93,37 @@ async function readSource(request: Request): Promise<string> {
   return source;
 }
 
+function compileSource(source: string, mode: CompileMode): CompiledPayload {
+  const compileStart = performance.now();
+  const result = compile(source, { generate: mode, dev: false, name: "EdgeComponent" });
+  const compileMs = +(performance.now() - compileStart).toFixed(2);
+  return {
+    svelte: VERSION,
+    mode,
+    compileMs,
+    warnings: result.warnings.map((w) => ({ code: w.code, message: w.message })),
+    jsBytes: result.js.code.length,
+    cssBytes: result.css?.code.length ?? 0,
+    js: result.js.code,
+    css: result.css?.code ?? ""
+  };
+}
+
+async function getOrCompile(source: string, mode: CompileMode, env: Env, ctx: ExecutionContext) {
+  const sourceHash = await sha256(source);
+  const key = `svelte:${VERSION}:${mode}:${sourceHash}`;
+  const cached = (await env.SVELTE_EDGE_CACHE?.get(key, "json")) as CompiledPayload | null;
+  if (cached) return { sourceHash, key, payload: cached, cache: "hit" as const };
+  let payload: CompiledPayload;
+  try {
+    payload = compileSource(source, mode);
+  } catch (err) {
+    throw new HttpError("compile_error", err instanceof Error ? err.message : String(err), 400);
+  }
+  if (env.SVELTE_EDGE_CACHE) ctx.waitUntil(env.SVELTE_EDGE_CACHE.put(key, JSON.stringify(payload), { expirationTtl: CACHE_TTL_SECONDS }));
+  return { sourceHash, key, payload, cache: "miss" as const };
+}
+
 function transformSsr(code: string): string {
   // Strip the internal import and turn `export default function` into `return function`.
   // The compiled SSR output is small and we control the compiler version, so a regex transform is acceptable here.
@@ -136,80 +168,56 @@ export default {
           throw new HttpError("bad_mode", "mode must be 'client' or 'server'", 400, { mode });
         }
         const source = await readSource(request);
-        const sourceHash = await sha256(source);
-        const key = `svelte:${VERSION}:${mode}:${sourceHash}`;
-        const cached = (await env.SVELTE_EDGE_CACHE?.get(key, "json")) as Record<string, unknown> | null;
-        if (cached) {
-          const totalMs = +(performance.now() - startedAt).toFixed(2);
-          return json({ ...cached, cache: "hit", requestId: rid }, {}, {
-            "server-timing": `total;dur=${totalMs}, cache;desc=hit`
-          });
-        }
-
-        const compileStart = performance.now();
-        let result;
-        try {
-          result = compile(source, { generate: mode, dev: false, name: "EdgeComponent" });
-        } catch (err) {
-          throw new HttpError("compile_error", err instanceof Error ? err.message : String(err), 400);
-        }
-        const compileMs = +(performance.now() - compileStart).toFixed(2);
-
-        const payload = {
-          svelte: VERSION,
-          mode,
-          compileMs,
-          warnings: result.warnings.map((w) => ({ code: w.code, message: w.message })),
-          jsBytes: result.js.code.length,
-          cssBytes: result.css?.code.length ?? 0,
-          js: result.js.code,
-          css: result.css?.code ?? ""
-        };
-
-        // Cache write path. Three modes:
-        // 1. Coordinator bound: route write through DO for single-flight.
-        //    Coordinator may return an existing payload if another writer
-        //    landed first ("coalesced") or KV hit between this isolate's
-        //    initial read and the DO's recheck ("hit").
-        // 2. KV bound, no coordinator: fire-and-forget waitUntil write.
-        // 3. Neither bound: no caching, miss every time.
-        let cacheTag: "miss" | "coalesced" | "hit" = "miss";
-        let returnedPayload: Record<string, unknown> = payload;
-        if (env.SVELTE_EDGE_COORDINATOR) {
-          try {
-            const stub = env.SVELTE_EDGE_COORDINATOR.get(env.SVELTE_EDGE_COORDINATOR.idFromName(key));
-            const coordRes = await stub.fetch("https://coordinator/coordinate", {
-              method: "POST",
-              headers: { "content-type": "application/json" },
-              body: JSON.stringify({ key, payload, ttlSeconds: CACHE_TTL_SECONDS })
-            });
-            if (coordRes.ok) {
-              const cr = (await coordRes.json()) as {
-                payload: Record<string, unknown>;
-                cache: "miss" | "coalesced" | "hit";
-              };
-              cacheTag = cr.cache;
-              returnedPayload = cr.payload;
-            } else {
-              // Coordinator failed; fall back to direct KV write so the request still succeeds.
-              if (env.SVELTE_EDGE_CACHE) {
-                ctx.waitUntil(env.SVELTE_EDGE_CACHE.put(key, JSON.stringify(payload), { expirationTtl: CACHE_TTL_SECONDS }));
-              }
-            }
-          } catch {
-            // Same fallback on thrown errors.
-            if (env.SVELTE_EDGE_CACHE) {
-              ctx.waitUntil(env.SVELTE_EDGE_CACHE.put(key, JSON.stringify(payload), { expirationTtl: CACHE_TTL_SECONDS }));
-            }
-          }
-        } else if (env.SVELTE_EDGE_CACHE) {
-          ctx.waitUntil(env.SVELTE_EDGE_CACHE.put(key, JSON.stringify(payload), { expirationTtl: CACHE_TTL_SECONDS }));
-        }
-
+        const { payload, cache } = await getOrCompile(source, mode, env, ctx);
         const totalMs = +(performance.now() - startedAt).toFixed(2);
-        return json({ ...returnedPayload, cache: cacheTag, requestId: rid }, {}, {
-          "server-timing": `total;dur=${totalMs}, compile;dur=${compileMs}, cache;desc=${cacheTag}`
+        return json({ ...payload, cache, requestId: rid }, {}, {
+          "server-timing": `total;dur=${totalMs}, compile;dur=${payload.compileMs}, cache;desc=${cache}`
         });
+      }
+
+      if (request.method === "POST" && url.pathname === "/artifacts") {
+        const source = await readSource(request);
+        const client = await getOrCompile(source, "client", env, ctx);
+        const server = await getOrCompile(source, "server", env, ctx);
+        const origin = url.origin;
+        const manifest = {
+          id: client.sourceHash.slice(0, 12),
+          sourceHash: client.sourceHash,
+          svelte: VERSION,
+          cache: { client: client.cache, server: server.cache },
+          artifacts: {
+            client: `${origin}/artifacts/${client.sourceHash}/client.js`,
+            server: `${origin}/artifacts/${client.sourceHash}/server.js`,
+            css: `${origin}/artifacts/${client.sourceHash}/style.css`,
+            preview: `${origin}/artifacts/${client.sourceHash}/preview.html`,
+            manifest: `${origin}/artifacts/${client.sourceHash}/manifest.json`
+          },
+          sizes: { clientJs: client.payload.jsBytes, serverJs: server.payload.jsBytes, css: client.payload.cssBytes },
+          timings: { clientCompileMs: client.payload.compileMs, serverCompileMs: server.payload.compileMs }
+        };
+        if (env.SVELTE_EDGE_CACHE) {
+          ctx.waitUntil(env.SVELTE_EDGE_CACHE.put(`artifact:${client.sourceHash}:source`, source, { expirationTtl: CACHE_TTL_SECONDS }));
+          ctx.waitUntil(env.SVELTE_EDGE_CACHE.put(`artifact:${client.sourceHash}:manifest`, JSON.stringify(manifest), { expirationTtl: CACHE_TTL_SECONDS }));
+        }
+        return json({ ...manifest, client: client.payload, server: server.payload, requestId: rid });
+      }
+
+      const artifactMatch = url.pathname.match(/^\/artifacts\/([a-f0-9]{64})\/(client\.js|server\.js|style\.css|manifest\.json|preview\.html)$/);
+      if (request.method === "GET" && artifactMatch) {
+        const [, hash, file] = artifactMatch;
+        const source = await env.SVELTE_EDGE_CACHE?.get(`artifact:${hash}:source`);
+        if (!source) throw new HttpError("artifact_not_found", "artifact source is not stored; POST /artifacts first with KV enabled", 404);
+        const client = file !== "server.js" ? await getOrCompile(source, "client", env, ctx) : null;
+        const server = file === "server.js" || file === "manifest.json" ? await getOrCompile(source, "server", env, ctx) : null;
+        if (file === "client.js") return new Response(client!.payload.js, { headers: { "content-type": "application/javascript; charset=utf-8", ...CORS_HEADERS } });
+        if (file === "server.js") return new Response(server!.payload.js, { headers: { "content-type": "application/javascript; charset=utf-8", ...CORS_HEADERS } });
+        if (file === "style.css") return new Response(client!.payload.css, { headers: { "content-type": "text/css; charset=utf-8", ...CORS_HEADERS } });
+        if (file === "preview.html") {
+          const html = `<!doctype html><html><head><meta charset="utf-8"><script type="importmap">${JSON.stringify({ imports: { svelte: `https://esm.sh/svelte@${VERSION}`, "svelte/": `https://esm.sh/svelte@${VERSION}/` } })}</script><style>${client!.payload.css}</style></head><body><div id="app"></div><script type="module">import Component from './client.js'; import { mount } from 'svelte'; mount(Component, { target: document.getElementById('app') });</script></body></html>`;
+          return new Response(html, { headers: { "content-type": "text/html; charset=utf-8", ...CORS_HEADERS } });
+        }
+        const manifest = await env.SVELTE_EDGE_CACHE?.get(`artifact:${hash}:manifest`, "json");
+        return json(manifest ?? { sourceHash: hash });
       }
 
       if (request.method === "POST" && url.pathname === "/render") {
