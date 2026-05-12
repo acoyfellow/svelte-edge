@@ -1,6 +1,8 @@
 import { compile, VERSION } from "svelte/compiler";
 import { renderToString } from "hono/jsx/dom/server";
 import { Shell } from "./ui";
+import { getExample } from "./examples";
+import { docPage, docsIndex, exampleDetail, examplesIndex } from "./pages";
 // `svelte/internal/server` has no public type declarations; we depend on the runtime export only.
 // @ts-expect-error - private subpath; only used to provide the `$` namespace to evaluated SSR output.
 import * as svelteServerInternal from "svelte/internal/server";
@@ -71,8 +73,8 @@ function errorJson(err: unknown, status = 400, rid?: string) {
   return json({ error: { code: "internal_error", message }, requestId: rid }, { status });
 }
 
-function indexHtml() {
-  return renderToString(<Shell />);
+function indexHtml(initialSource?: string, activeExample?: string) {
+  return renderToString(<Shell initialSource={initialSource} activeExample={activeExample} />);
 }
 
 
@@ -156,7 +158,18 @@ export default {
         return new Response(null, { headers: CORS_HEADERS });
       }
       if (request.method === "GET" && url.pathname === "/") {
-        return new Response(indexHtml(), { headers: { "content-type": "text/html; charset=utf-8", ...CORS_HEADERS } });
+        const example = url.searchParams.get("example");
+        return new Response(indexHtml(example ? getExample(example)?.source : undefined, example ?? undefined), { headers: { "content-type": "text/html; charset=utf-8", ...CORS_HEADERS } });
+      }
+      if (request.method === "GET" && url.pathname === "/examples") return new Response(examplesIndex(), { headers: { "content-type": "text/html; charset=utf-8", ...CORS_HEADERS } });
+      if (request.method === "GET" && url.pathname.startsWith("/examples/")) {
+        const page = exampleDetail(url.pathname.split("/").pop() || "");
+        if (page) return new Response(page, { headers: { "content-type": "text/html; charset=utf-8", ...CORS_HEADERS } });
+      }
+      if (request.method === "GET" && url.pathname === "/docs") return new Response(docsIndex(), { headers: { "content-type": "text/html; charset=utf-8", ...CORS_HEADERS } });
+      if (request.method === "GET" && url.pathname.startsWith("/docs/")) {
+        const page = docPage(url.pathname);
+        if (page) return new Response(page, { headers: { "content-type": "text/html; charset=utf-8", ...CORS_HEADERS } });
       }
       if (request.method === "GET" && url.pathname === "/health") {
         return json({ ok: true, svelte: VERSION, requestId: rid });

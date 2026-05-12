@@ -3,9 +3,22 @@ import { html } from "hono/html";
 import type { FC } from "hono/jsx";
 import { VERSION } from "svelte/compiler";
 import { styles } from "./styles.generated";
+import { EXAMPLES, type Example } from "./examples";
 
-export const Shell: FC = () => {
-  const sample = `<script>let count = 0;</script>\n<button onclick={() => count += 1}>count: {count}</button>\n<style>button{font:inherit;padding:.5rem 1rem;border-radius:.75rem;background:#ff3e00;color:white}</style>`;
+const DEFAULT_SAMPLE = `<script>let count = 0;</script>\n<button onclick={() => count += 1}>count: {count}</button>\n<style>button{font:inherit;padding:.5rem 1rem;border-radius:.75rem;background:#ff3e00;color:white}</style>`;
+
+type ShellProps = { initialSource?: string; activeExample?: string };
+
+const TopNav: FC<{ active?: "playground" | "examples" | "docs" }> = ({ active }) => (
+  <nav class="top-nav">
+    <a href="/" class={active === "playground" ? "nav-link active" : "nav-link"}>Playground</a>
+    <a href="/examples" class={active === "examples" ? "nav-link active" : "nav-link"}>Examples</a>
+    <a href="/docs" class={active === "docs" ? "nav-link active" : "nav-link"}>Docs</a>
+  </nav>
+);
+
+export const Shell: FC<ShellProps> = ({ initialSource, activeExample }) => {
+  const sample = initialSource ?? DEFAULT_SAMPLE;
   return (
     <html lang="en">
       <head>
@@ -21,6 +34,8 @@ export const Shell: FC = () => {
               <p class="system-label">SVELTE EDGE</p>
               <h1>Compile Svelte on the edge.</h1>
               <p>Type a component. Cloudflare Workers compile it. The browser renders it. The result becomes addressable edge artifacts.</p>
+              <TopNav active="playground" />
+              {activeExample ? <p class="example-tag">example: <code>{activeExample}</code></p> : null}
             </div>
             <a class="github-icon" href="https://github.com/acoyfellow/svelte-edge" aria-label="GitHub"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 .5a12 12 0 0 0-3.79 23.39c.6.11.82-.26.82-.58v-2.02c-3.34.73-4.04-1.61-4.04-1.61-.55-1.39-1.34-1.76-1.34-1.76-1.09-.75.08-.73.08-.73 1.2.08 1.84 1.24 1.84 1.24 1.07 1.83 2.81 1.3 3.49.99.11-.78.42-1.3.76-1.6-2.67-.3-5.47-1.34-5.47-5.95 0-1.31.47-2.39 1.24-3.23-.12-.3-.54-1.52.12-3.18 0 0 1.01-.32 3.3 1.23a11.5 11.5 0 0 1 6 0c2.29-1.55 3.3-1.23 3.3-1.23.66 1.66.24 2.88.12 3.18.77.84 1.23 1.92 1.23 3.23 0 4.62-2.81 5.64-5.49 5.94.43.37.81 1.1.81 2.22v3.29c0 .32.22.7.83.58A12 12 0 0 0 12 .5Z"/></svg></a>
           </header>
@@ -95,5 +110,198 @@ autoResize(); runPreview();
         `}</script>
       </body>
     </html>
+  );
+};
+
+const PageChrome: FC<{ title: string; active: "playground" | "examples" | "docs"; children?: unknown }> = ({ title, active, children }) => (
+  <html lang="en">
+    <head>
+      <meta charset="utf-8" />
+      <meta name="viewport" content="width=device-width, initial-scale=1" />
+      <title>{title} · svelte-edge</title>
+      <style>{styles}</style>
+    </head>
+    <body class="min-h-screen">
+      <main class="mx-auto max-w-6xl p-4 md:p-8">
+        <header class="simple-hero">
+          <div>
+            <p class="system-label">SVELTE EDGE</p>
+            <h1>{title}</h1>
+            <TopNav active={active} />
+          </div>
+          <a class="github-icon" href="https://github.com/acoyfellow/svelte-edge" aria-label="GitHub"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 .5a12 12 0 0 0-3.79 23.39c.6.11.82-.26.82-.58v-2.02c-3.34.73-4.04-1.61-4.04-1.61-.55-1.39-1.34-1.76-1.34-1.76-1.09-.75.08-.73.08-.73 1.2.08 1.84 1.24 1.84 1.24 1.07 1.83 2.81 1.3 3.49.99.11-.78.42-1.3.76-1.6-2.67-.3-5.47-1.34-5.47-5.95 0-1.31.47-2.39 1.24-3.23-.12-.3-.54-1.52.12-3.18 0 0 1.01-.32 3.3 1.23a11.5 11.5 0 0 1 6 0c2.29-1.55 3.3-1.23 3.3-1.23.66 1.66.24 2.88.12 3.18.77.84 1.23 1.92 1.23 3.23 0 4.62-2.81 5.64-5.49 5.94.43.37.81 1.1.81 2.22v3.29c0 .32.22.7.83.58A12 12 0 0 0 12 .5Z"/></svg></a>
+        </header>
+        {children}
+      </main>
+    </body>
+  </html>
+);
+
+export const ExamplesIndex: FC<{ examples: Example[] }> = ({ examples }) => (
+  <PageChrome title="Examples" active="examples">
+    <section class="playground-card mt-6">
+      <div class="card-head">
+        <div><p class="system-label">GALLERY</p><h2>Svelte components, ready to compile</h2></div>
+      </div>
+      <ul class="example-grid">
+        {examples.map((e) => (
+          <li class="example-tile">
+            <p class="system-label">{(e.tags ?? []).join(" · ") || "example"}</p>
+            <h3>{e.title}</h3>
+            <p class="muted">{e.summary}</p>
+            <div class="example-actions">
+              <a class="primary-button" href={`/examples/${e.slug}`}>Open</a>
+              <a class="secondary-button" href={`/?example=${e.slug}`}>Load in playground</a>
+            </div>
+          </li>
+        ))}
+      </ul>
+    </section>
+  </PageChrome>
+);
+
+export const ExampleDetail: FC<{ example: Example }> = ({ example }) => (
+  <PageChrome title={example.title} active="examples">
+    <section class="playground-card mt-6">
+      <div class="card-head">
+        <div>
+          <p class="system-label">{(example.tags ?? []).join(" · ") || "example"}</p>
+          <h2>{example.title}</h2>
+        </div>
+        <div class="actions">
+          <a class="primary-button" href={`/?example=${example.slug}`}>Load in playground</a>
+          <a class="secondary-button" href="/examples">All examples</a>
+        </div>
+      </div>
+      <div class="example-detail-body">
+        <p>{example.summary}</p>
+        <pre class="code-panel">{example.source}</pre>
+      </div>
+    </section>
+  </PageChrome>
+);
+
+export const NotFoundPage: FC<{ message: string }> = ({ message }) => (
+  <PageChrome title="Not found" active="examples">
+    <section class="playground-card mt-6">
+      <div class="card-head"><div><p class="system-label">404</p><h2>{message}</h2></div></div>
+      <div class="example-detail-body">
+        <p>Try the <a href="/examples">examples gallery</a> or the <a href="/">playground</a>.</p>
+      </div>
+    </section>
+  </PageChrome>
+);
+
+type DocPage = { slug: string; kind: "tutorial" | "reference" | "explanation" | "how-to"; title: string; summary: string };
+
+export const DOC_PAGES: DocPage[] = [
+  { slug: "tutorial-first-edge-widget", kind: "tutorial", title: "Your first edge widget", summary: "Walk through compiling, previewing and rendering a Svelte component from scratch." },
+  { slug: "reference-api", kind: "reference", title: "HTTP API reference", summary: "All routes: /compile, /artifacts, /render, /health." },
+  { slug: "explanation-artifacts-not-repl", kind: "explanation", title: "Artifacts, not a REPL", summary: "Why we hash sources to URLs instead of streaming a session-bound REPL." }
+];
+
+export const DocsIndex: FC = () => (
+  <PageChrome title="Docs" active="docs">
+    <section class="playground-card mt-6">
+      <div class="card-head">
+        <div><p class="system-label">DIATAXIS</p><h2>Four kinds of writing, one project</h2></div>
+      </div>
+      <ul class="doc-grid">
+        {DOC_PAGES.map((d) => (
+          <li class="doc-tile">
+            <p class="system-label">{d.kind}</p>
+            <h3><a href={`/docs/${d.slug}`}>{d.title}</a></h3>
+            <p class="muted">{d.summary}</p>
+          </li>
+        ))}
+      </ul>
+    </section>
+  </PageChrome>
+);
+
+const TutorialPage: FC = () => (
+  <article class="doc-body">
+    <p class="system-label">TUTORIAL</p>
+    <h2>Your first edge widget</h2>
+    <p>By the end of this tutorial you will compile, preview and render a Svelte component using svelte-edge. We assume you can read Svelte and have a terminal open.</p>
+    <h3>1. Start the worker</h3>
+    <p>From the repo root run <code>npm run dev</code>. Wrangler boots a local Worker and prints a URL. Open it: you should see the playground.</p>
+    <h3>2. Compile a component</h3>
+    <p>Replace the editor contents with the counter from <a href="/examples/counter">the counter example</a> and click <strong>Run</strong>. Three things happened:</p>
+    <ol>
+      <li>The Worker compiled your source with the Svelte compiler.</li>
+      <li>It hashed the source and stored client+server JS in KV (when bound).</li>
+      <li>It returned an artifact manifest with URLs you can <code>curl</code>.</li>
+    </ol>
+    <h3>3. Render server-side</h3>
+    <p>Open a terminal and run:</p>
+    <pre class="code-panel">curl -sX POST http://localhost:8787/render?format=html \\{"\n"}  -H "content-type: text/plain" \\{"\n"}  --data-binary @- {"<"}{"<"} 'EOF'{"\n"}{`<script>let { name = "edge" } = $props();</script>\n<h1>hello, {name}</h1>`}{"\n"}EOF</pre>
+    <p>The Worker compiled your component to SSR output, evaluated it in the isolate, and returned a fully rendered HTML document. No client JS required.</p>
+    <h3>4. Inspect the artifacts</h3>
+    <p>Click the <strong>Artifacts</strong> tab in the playground. Each row is a real URL you can share, cache, or embed.</p>
+    <p>Next: read the <a href="/docs/reference-api">API reference</a>.</p>
+  </article>
+);
+
+const ReferencePage: FC = () => (
+  <article class="doc-body">
+    <p class="system-label">REFERENCE</p>
+    <h2>HTTP API reference</h2>
+    <p>All routes accept and emit JSON unless otherwise noted. Source bodies may be sent as <code>text/plain</code> or as a <code>source</code> form field. Source must be ≤ 256 KiB.</p>
+    <h3>GET /health</h3>
+    <p>Returns <code>{`{ ok: true, svelte, requestId }`}</code>. Use this for liveness checks.</p>
+    <h3>POST /compile?mode=client|server</h3>
+    <p>Compiles the supplied Svelte source. Returns JS, CSS, byte sizes, warnings, and timing. Results are cached in KV by content hash for 24 hours.</p>
+    <h3>POST /artifacts</h3>
+    <p>Compiles both client and server output, persists the source by hash, and returns a manifest with URLs for <code>client.js</code>, <code>server.js</code>, <code>style.css</code>, <code>preview.html</code>, and <code>manifest.json</code>. Requires the KV binding.</p>
+    <h3>GET /artifacts/{`<hash>`}/{`<file>`}</h3>
+    <p>Serves a previously compiled artifact. <code>file</code> is one of <code>client.js</code>, <code>server.js</code>, <code>style.css</code>, <code>preview.html</code>, <code>manifest.json</code>. 404s when the hash is unknown.</p>
+    <h3>POST /render?format=html&amp;props=…</h3>
+    <p>Compiles to SSR output, evaluates it in the isolate, and returns rendered HTML (with <code>format=html</code>) or a JSON envelope with <code>html</code>, <code>head</code> and timings. <code>props</code> is a URL-encoded JSON object ≤ 32 KiB.</p>
+    <h3>GET /examples and /examples/:slug</h3>
+    <p>Static, server-rendered catalog of the bundled examples. Each example is also reachable via <code>/?example=:slug</code> in the playground.</p>
+    <h3>GET /docs and /docs/:slug</h3>
+    <p>This site.</p>
+  </article>
+);
+
+const ExplanationPage: FC = () => (
+  <article class="doc-body">
+    <p class="system-label">EXPLANATION</p>
+    <h2>Artifacts, not a REPL</h2>
+    <p>The Svelte REPL is a great teaching tool, but it is session-bound: you cannot link a friend to a compiled bundle, you cannot cache the output, you cannot serve it from the edge. svelte-edge takes a different shape on purpose.</p>
+    <h3>Sources hash to URLs</h3>
+    <p>When you POST a component to <code>/artifacts</code>, the Worker hashes the source with SHA-256. Compiled client and server outputs are cached in KV under that hash, and the response is a manifest of stable URLs. Two people compiling the same component get the same URLs.</p>
+    <h3>The Worker is the build system</h3>
+    <p>Most Svelte setups compile at build time on a developer laptop. svelte-edge compiles on demand at request time, anywhere Cloudflare runs. The compiler is small enough to ship inside the Worker bundle; KV caches the output so each unique source pays the compile cost exactly once.</p>
+    <h3>SSR is a stricter test of correctness</h3>
+    <p>If a component renders correctly through <code>/render</code> — where there is no DOM, no event loop tricks, no browser-only globals — it tends to render correctly everywhere. The route exists partly as a forcing function for the project.</p>
+    <h3>What this is not</h3>
+    <p>This is not a hosting platform, not a framework, not a replacement for the REPL. It is a small, deliberate experiment in moving the compile step from a build server to the edge, and treating the output as an addressable resource.</p>
+  </article>
+);
+
+const docComponents: Record<string, FC> = {
+  "tutorial-first-edge-widget": TutorialPage,
+  "reference-api": ReferencePage,
+  "explanation-artifacts-not-repl": ExplanationPage
+};
+
+export const DocPageView: FC<{ slug: string }> = ({ slug }) => {
+  const meta = DOC_PAGES.find((d) => d.slug === slug);
+  const Body = docComponents[slug];
+  if (!meta || !Body) {
+    return <NotFoundPage message={`No doc with slug "${slug}"`} />;
+  }
+  return (
+    <PageChrome title={meta.title} active="docs">
+      <section class="playground-card mt-6">
+        <div class="card-head">
+          <div><p class="system-label">{meta.kind.toUpperCase()}</p><h2>{meta.title}</h2></div>
+          <div class="actions"><a class="secondary-button" href="/docs">All docs</a></div>
+        </div>
+        <div class="doc-wrap"><Body /></div>
+      </section>
+    </PageChrome>
   );
 };
