@@ -1,8 +1,7 @@
 import { compile, VERSION } from "svelte/compiler";
 import { renderToString } from "hono/jsx/dom/server";
-import { Shell } from "./ui";
-import { getExample } from "./examples";
-import { docPage, docsIndex, exampleDetail, examplesIndex } from "./pages";
+import { Shell, ExamplesIndex, ExampleDetail, DocsIndex, DocPageView } from "./ui";
+import { EXAMPLES, getExample } from "./examples";
 // `svelte/internal/server` has no public type declarations; we depend on the runtime export only.
 // @ts-expect-error - private subpath; only used to provide the `$` namespace to evaluated SSR output.
 import * as svelteServerInternal from "svelte/internal/server";
@@ -161,15 +160,15 @@ export default {
         const example = url.searchParams.get("example");
         return new Response(indexHtml(example ? getExample(example)?.source : undefined, example ?? undefined), { headers: { "content-type": "text/html; charset=utf-8", ...CORS_HEADERS } });
       }
-      if (request.method === "GET" && url.pathname === "/examples") return new Response(examplesIndex(), { headers: { "content-type": "text/html; charset=utf-8", ...CORS_HEADERS } });
+      if (request.method === "GET" && url.pathname === "/examples") return new Response(renderToString(<ExamplesIndex examples={EXAMPLES} />), { headers: { "content-type": "text/html; charset=utf-8", ...CORS_HEADERS } });
       if (request.method === "GET" && url.pathname.startsWith("/examples/")) {
-        const page = exampleDetail(url.pathname.split("/").pop() || "");
-        if (page) return new Response(page, { headers: { "content-type": "text/html; charset=utf-8", ...CORS_HEADERS } });
+        const example = getExample(url.pathname.split("/").pop() || "");
+        if (example) return new Response(renderToString(<ExampleDetail example={example} />), { headers: { "content-type": "text/html; charset=utf-8", ...CORS_HEADERS } });
       }
-      if (request.method === "GET" && url.pathname === "/docs") return new Response(docsIndex(), { headers: { "content-type": "text/html; charset=utf-8", ...CORS_HEADERS } });
+      if (request.method === "GET" && url.pathname === "/docs") return new Response(renderToString(<DocsIndex />), { headers: { "content-type": "text/html; charset=utf-8", ...CORS_HEADERS } });
       if (request.method === "GET" && url.pathname.startsWith("/docs/")) {
-        const page = docPage(url.pathname);
-        if (page) return new Response(page, { headers: { "content-type": "text/html; charset=utf-8", ...CORS_HEADERS } });
+        const slug = url.pathname.replace(/^\/docs\//, "");
+        return new Response(renderToString(<DocPageView slug={slug} />), { headers: { "content-type": "text/html; charset=utf-8", ...CORS_HEADERS } });
       }
       if (request.method === "GET" && url.pathname === "/health") {
         return json({ ok: true, svelte: VERSION, requestId: rid });

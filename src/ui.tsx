@@ -204,7 +204,7 @@ export const DocsIndex: FC = () => (
   <PageChrome title="Docs" active="docs">
     <section class="playground-card mt-6">
       <div class="card-head">
-        <div><p class="system-label">DIATAXIS</p><h2>Four kinds of writing, one project</h2></div>
+        <div><p class="system-label">GUIDES</p><h2>Learn by doing, then look up details when you need them.</h2></div>
       </div>
       <ul class="doc-grid">
         {DOC_PAGES.map((d) => (
@@ -221,7 +221,7 @@ export const DocsIndex: FC = () => (
 
 const TutorialPage: FC = () => (
   <article class="doc-body">
-    <p class="system-label">TUTORIAL</p>
+    <p class="system-label">GET STARTED</p>
     <h2>Your first edge widget</h2>
     <p>By the end of this tutorial you will compile, preview and render a Svelte component using svelte-edge. We assume you can read Svelte and have a terminal open.</p>
     <h3>1. Start the worker</h3>
@@ -245,7 +245,7 @@ const TutorialPage: FC = () => (
 
 const ReferencePage: FC = () => (
   <article class="doc-body">
-    <p class="system-label">REFERENCE</p>
+    <p class="system-label">API</p>
     <h2>HTTP API reference</h2>
     <p>All routes accept and emit JSON unless otherwise noted. Source bodies may be sent as <code>text/plain</code> or as a <code>source</code> form field. Source must be ≤ 256 KiB.</p>
     <h3>GET /health</h3>
@@ -267,9 +267,9 @@ const ReferencePage: FC = () => (
 
 const ExplanationPage: FC = () => (
   <article class="doc-body">
-    <p class="system-label">EXPLANATION</p>
+    <p class="system-label">WHY</p>
     <h2>Artifacts, not a REPL</h2>
-    <p>The Svelte REPL is a great teaching tool, but it is session-bound: you cannot link a friend to a compiled bundle, you cannot cache the output, you cannot serve it from the edge. svelte-edge takes a different shape on purpose.</p>
+    <p>The Svelte REPL is a great teaching tool. svelte-edge is for a different job: turning source into URLs you can inspect, copy, embed, cache, and eventually deploy.</p>
     <h3>Sources hash to URLs</h3>
     <p>When you POST a component to <code>/artifacts</code>, the Worker hashes the source with SHA-256. Compiled client and server outputs are cached in KV under that hash, and the response is a manifest of stable URLs. Two people compiling the same component get the same URLs.</p>
     <h3>The Worker is the build system</h3>
@@ -277,7 +277,7 @@ const ExplanationPage: FC = () => (
     <h3>SSR is a stricter test of correctness</h3>
     <p>If a component renders correctly through <code>/render</code> — where there is no DOM, no event loop tricks, no browser-only globals — it tends to render correctly everywhere. The route exists partly as a forcing function for the project.</p>
     <h3>What this is not</h3>
-    <p>This is not a hosting platform, not a framework, not a replacement for the REPL. It is a small, deliberate experiment in moving the compile step from a build server to the edge, and treating the output as an addressable resource.</p>
+    <p>This is not a replacement for the Svelte Playground. It is a small experiment in moving the compile step to Cloudflare Workers and treating the output as addressable edge artifacts.</p>
   </article>
 );
 
