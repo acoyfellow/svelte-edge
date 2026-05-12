@@ -15,6 +15,7 @@
     "bench:concurrent": "tsx scripts/bench-concurrent.ts"
   },
   "dependencies": {
+    "hono": "^4.12.18",
     "svelte": "latest"
   },
   "devDependencies": {

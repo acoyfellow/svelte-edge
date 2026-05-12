@@ -1,4 +1,6 @@
 import { compile, VERSION } from "svelte/compiler";
+import { renderToString } from "hono/jsx/dom/server";
+import { Shell } from "./ui";
 // `svelte/internal/server` has no public type declarations; we depend on the runtime export only.
 // @ts-expect-error - private subpath; only used to provide the `$` namespace to evaluated SSR output.
 import * as svelteServerInternal from "svelte/internal/server";
@@ -69,21 +71,9 @@ function errorJson(err: unknown, status = 400, rid?: string) {
 }
 
 function indexHtml() {
-  return `<!doctype html>
-<title>svelte-edge</title>
-<h1>svelte-edge</h1>
-<p>Svelte ${VERSION}. Endpoints:</p>
-<ul>
-  <li><code>GET /health</code></li>
-  <li><code>POST /compile?mode=client|server</code> &mdash; returns compiled JS/CSS</li>
-  <li><code>POST /render</code> &mdash; compiles SSR + evaluates + returns HTML</li>
-</ul>
-<form method="post" action="/compile?mode=client">
-<textarea name="source" rows="12" cols="80"><script>let count = 0;</script>
-<button onclick={() => count += 1}>count: {count}</button></textarea><br>
-<button>Compile on the edge</button>
-</form>`;
+  return renderToString(<Shell />);
 }
+
 
 async function readSource(request: Request): Promise<string> {
   const contentType = request.headers.get("content-type") || "";

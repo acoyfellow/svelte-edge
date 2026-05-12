@@ -1,5 +1,5 @@
 name = "svelte-edge"
-main = "src/worker.ts"
+main = "src/worker.tsx"
 compatibility_date = "2026-05-12"
 compatibility_flags = ["nodejs_compat"]
 workers_dev = true
