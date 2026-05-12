@@ -9,12 +9,40 @@ const DEFAULT_SAMPLE = `<script>let count = 0;</script>\n<button onclick={() => 
 
 type ShellProps = { initialSource?: string; activeExample?: string };
 
+const NAV_ITEMS = [
+  { href: "/", label: "Playground" },
+  { href: "/examples", label: "Examples" },
+  { href: "/docs", label: "Docs" },
+  { href: "/docs/tutorial-first-edge-widget", label: "First widget" },
+  { href: "/docs/reference-api", label: "API reference" },
+  { href: "/docs/explanation-artifacts-not-repl", label: "Why artifacts" }
+];
+
 const TopNav: FC<{ active?: "playground" | "examples" | "docs" }> = ({ active }) => (
   <nav class="top-nav">
     <a href="/" class={active === "playground" ? "nav-link active" : "nav-link"}>Playground</a>
     <a href="/examples" class={active === "examples" ? "nav-link active" : "nav-link"}>Examples</a>
     <a href="/docs" class={active === "docs" ? "nav-link active" : "nav-link"}>Docs</a>
   </nav>
+);
+
+const Sidebar: FC<{ current?: string }> = ({ current }) => (
+  <aside class="sidebar">
+    <a class="brand" href="/">svelte-edge</a>
+    <nav>
+      <p>Start</p>
+      {NAV_ITEMS.slice(0, 3).map((item) => <a class={current === item.href ? "active" : ""} href={item.href}>{item.label}</a>)}
+      <p>Docs</p>
+      {NAV_ITEMS.slice(3).map((item) => <a class={current === item.href ? "active" : ""} href={item.href}>{item.label}</a>)}
+    </nav>
+  </aside>
+);
+
+const MobileNav: FC<{ current?: string }> = ({ current }) => (
+  <details class="mobile-nav">
+    <summary>Menu</summary>
+    <div>{NAV_ITEMS.map((item) => <a class={current === item.href ? "active" : ""} href={item.href}>{item.label}</a>)}</div>
+  </details>
 );
 
 export const Shell: FC<ShellProps> = ({ initialSource, activeExample }) => {
@@ -28,7 +56,9 @@ export const Shell: FC<ShellProps> = ({ initialSource, activeExample }) => {
         <style>{styles}</style>
       </head>
       <body class="min-h-screen">
-        <main class="mx-auto max-w-6xl p-4 md:p-8">
+        <Sidebar current="/" />
+        <MobileNav current="/" />
+        <main class="layout-main">
           <header class="simple-hero">
             <div>
               <p class="system-label">SVELTE EDGE</p>
@@ -113,7 +143,7 @@ autoResize(); runPreview();
   );
 };
 
-const PageChrome: FC<{ title: string; active: "playground" | "examples" | "docs"; children?: unknown }> = ({ title, active, children }) => (
+const PageChrome: FC<{ title: string; active: "playground" | "examples" | "docs"; current: string; children?: unknown; prev?: { href: string; label: string }; next?: { href: string; label: string } }> = ({ title, active, current, children, prev, next }) => (
   <html lang="en">
     <head>
       <meta charset="utf-8" />
@@ -122,7 +152,9 @@ const PageChrome: FC<{ title: string; active: "playground" | "examples" | "docs"
       <style>{styles}</style>
     </head>
     <body class="min-h-screen">
-      <main class="mx-auto max-w-6xl p-4 md:p-8">
+      <Sidebar current={current} />
+      <MobileNav current={current} />
+      <main class="layout-main">
         <header class="simple-hero">
           <div>
             <p class="system-label">SVELTE EDGE</p>
@@ -132,13 +164,14 @@ const PageChrome: FC<{ title: string; active: "playground" | "examples" | "docs"
           <a class="github-icon" href="https://github.com/acoyfellow/svelte-edge" aria-label="GitHub"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 .5a12 12 0 0 0-3.79 23.39c.6.11.82-.26.82-.58v-2.02c-3.34.73-4.04-1.61-4.04-1.61-.55-1.39-1.34-1.76-1.34-1.76-1.09-.75.08-.73.08-.73 1.2.08 1.84 1.24 1.84 1.24 1.07 1.83 2.81 1.3 3.49.99.11-.78.42-1.3.76-1.6-2.67-.3-5.47-1.34-5.47-5.95 0-1.31.47-2.39 1.24-3.23-.12-.3-.54-1.52.12-3.18 0 0 1.01-.32 3.3 1.23a11.5 11.5 0 0 1 6 0c2.29-1.55 3.3-1.23 3.3-1.23.66 1.66.24 2.88.12 3.18.77.84 1.23 1.92 1.23 3.23 0 4.62-2.81 5.64-5.49 5.94.43.37.81 1.1.81 2.22v3.29c0 .32.22.7.83.58A12 12 0 0 0 12 .5Z"/></svg></a>
         </header>
         {children}
+        {(prev || next) ? <nav class="page-flow">{prev ? <a href={prev.href}>← {prev.label}</a> : <span></span>}{next ? <a href={next.href}>{next.label} →</a> : <span></span>}</nav> : null}
       </main>
     </body>
   </html>
 );
 
 export const ExamplesIndex: FC<{ examples: Example[] }> = ({ examples }) => (
-  <PageChrome title="Examples" active="examples">
+  <PageChrome title="Examples" active="examples" current="/examples" next={{ href: "/docs", label: "Docs" }}>
     <section class="playground-card mt-6">
       <div class="card-head">
         <div><p class="system-label">GALLERY</p><h2>Svelte components, ready to compile</h2></div>
@@ -161,7 +194,7 @@ export const ExamplesIndex: FC<{ examples: Example[] }> = ({ examples }) => (
 );
 
 export const ExampleDetail: FC<{ example: Example }> = ({ example }) => (
-  <PageChrome title={example.title} active="examples">
+  <PageChrome title={example.title} active="examples" current={`/examples/${example.slug}`} prev={{ href: "/examples", label: "Examples" }} next={{ href: "/docs", label: "Docs" }}>
     <section class="playground-card mt-6">
       <div class="card-head">
         <div>
@@ -182,7 +215,7 @@ export const ExampleDetail: FC<{ example: Example }> = ({ example }) => (
 );
 
 export const NotFoundPage: FC<{ message: string }> = ({ message }) => (
-  <PageChrome title="Not found" active="examples">
+  <PageChrome title="Not found" active="examples" current="/examples">
     <section class="playground-card mt-6">
       <div class="card-head"><div><p class="system-label">404</p><h2>{message}</h2></div></div>
       <div class="example-detail-body">
@@ -201,7 +234,7 @@ export const DOC_PAGES: DocPage[] = [
 ];
 
 export const DocsIndex: FC = () => (
-  <PageChrome title="Docs" active="docs">
+  <PageChrome title="Docs" active="docs" current="/docs" prev={{ href: "/examples", label: "Examples" }} next={{ href: "/docs/tutorial-first-edge-widget", label: "First widget" }}>
     <section class="playground-card mt-6">
       <div class="card-head">
         <div><p class="system-label">GUIDES</p><h2>Learn by doing, then look up details when you need them.</h2></div>
@@ -287,6 +320,21 @@ const docComponents: Record<string, FC> = {
   "explanation-artifacts-not-repl": ExplanationPage
 };
 
+function prevDoc(slug: string) {
+  const order = ["tutorial-first-edge-widget", "reference-api", "explanation-artifacts-not-repl"];
+  const labels: Record<string, string> = { "tutorial-first-edge-widget": "First widget", "reference-api": "API reference", "explanation-artifacts-not-repl": "Why artifacts" };
+  const i = order.indexOf(slug);
+  if (i <= 0) return { href: "/docs", label: "Docs" };
+  return { href: `/docs/${order[i - 1]}`, label: labels[order[i - 1]] };
+}
+function nextDoc(slug: string) {
+  const order = ["tutorial-first-edge-widget", "reference-api", "explanation-artifacts-not-repl"];
+  const labels: Record<string, string> = { "tutorial-first-edge-widget": "First widget", "reference-api": "API reference", "explanation-artifacts-not-repl": "Why artifacts" };
+  const i = order.indexOf(slug);
+  if (i === -1 || i >= order.length - 1) return undefined;
+  return { href: `/docs/${order[i + 1]}`, label: labels[order[i + 1]] };
+}
+
 export const DocPageView: FC<{ slug: string }> = ({ slug }) => {
   const meta = DOC_PAGES.find((d) => d.slug === slug);
   const Body = docComponents[slug];
@@ -294,7 +342,7 @@ export const DocPageView: FC<{ slug: string }> = ({ slug }) => {
     return <NotFoundPage message={`No doc with slug "${slug}"`} />;
   }
   return (
-    <PageChrome title={meta.title} active="docs">
+    <PageChrome title={meta.title} active="docs" current={`/docs/${slug}`} prev={prevDoc(slug)} next={nextDoc(slug)}>
       <section class="playground-card mt-6">
         <div class="card-head">
           <div><p class="system-label">{meta.kind.toUpperCase()}</p><h2>{meta.title}</h2></div>
