@@ -1,0 +1,23 @@
+name = "svelte-edge"
+main = "src/worker.ts"
+compatibility_date = "2026-05-12"
+compatibility_flags = ["nodejs_compat"]
+workers_dev = true
+
+# Prototype artifact cache. Create with:
+# wrangler kv namespace create SVELTE_EDGE_CACHE
+# [[kv_namespaces]]
+# binding = "SVELTE_EDGE_CACHE"
+# id = "..."
+
+# Optional: Durable Object single-flight coordinator for compile cache writes.
+# See DO-COORDINATOR.md for the design and tradeoffs. To enable, uncomment
+# both blocks below and redeploy.
+#
+# [[durable_objects.bindings]]
+# name = "SVELTE_EDGE_COORDINATOR"
+# class_name = "CacheCoordinator"
+#
+# [[migrations]]
+# tag = "v1-coordinator"
+# new_sqlite_classes = ["CacheCoordinator"]

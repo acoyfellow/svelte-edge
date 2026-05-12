@@ -1,0 +1,27 @@
+{
+  "name": "svelte-edge",
+  "version": "0.0.0",
+  "type": "module",
+  "private": false,
+  "description": "Experiments for compiling and running Svelte at the edge on Cloudflare Workers.",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "check": "tsc --noEmit",
+    "bench:local": "tsx scripts/bench-local.ts",
+    "report": "tsx scripts/experiment-report.ts",
+    "build": "wrangler deploy --dry-run --outdir dist",
+    "bench:http": "tsx scripts/bench-http.ts",
+    "bench:concurrent": "tsx scripts/bench-concurrent.ts"
+  },
+  "dependencies": {
+    "svelte": "latest"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "latest",
+    "@types/node": "^25.7.0",
+    "tsx": "latest",
+    "typescript": "latest",
+    "wrangler": "latest"
+  }
+}
