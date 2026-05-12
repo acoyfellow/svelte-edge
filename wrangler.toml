@@ -21,3 +21,6 @@ workers_dev = true
 # [[migrations]]
 # tag = "v1-coordinator"
 # new_sqlite_classes = ["CacheCoordinator"]
+
+[ai]
+binding = "AI"

@@ -5,7 +5,7 @@ import { VERSION } from "svelte/compiler";
 import { styles } from "./styles.generated";
 import { EXAMPLES, type Example } from "./examples";
 
-const DEFAULT_SAMPLE = `<script>let count = 0;</script>\n<button onclick={() => count += 1}>count: {count}</button>\n<style>button{font:inherit;padding:.5rem 1rem;border-radius:.75rem;background:#ff3e00;color:white}</style>`;
+const DEFAULT_SAMPLE = `<script>let count = $state(0);</script>\n<button onclick={() => count += 1}>count: {count}</button>\n<style>button{font:inherit;padding:.5rem 1rem;border-radius:.75rem;background:#ff3e00;color:white}</style>`;
 
 type ShellProps = { initialSource?: string; activeExample?: string };
 
@@ -15,7 +15,7 @@ const NAV_ITEMS = [
   { href: "/docs", label: "Docs" },
   { href: "/docs/tutorial-first-edge-widget", label: "First widget" },
   { href: "/docs/reference-api", label: "API reference" },
-  { href: "/docs/explanation-artifacts-not-repl", label: "Why artifacts" }
+  { href: "/docs/explanation-bundles-not-repl", label: "Why bundles" }
 ];
 
 const TopNav: FC<{ active?: "playground" | "examples" | "docs" }> = ({ active }) => (
@@ -63,7 +63,7 @@ export const Shell: FC<ShellProps> = ({ initialSource, activeExample }) => {
             <div>
               <p class="system-label">SVELTE EDGE</p>
               <h1>Compile Svelte on the edge.</h1>
-              <p>Type a component. Cloudflare Workers compile it. The browser renders it. The result becomes addressable edge artifacts.</p>
+              <p>Type a component. Cloudflare Workers compile it. The browser renders it. The result becomes addressable edge bundles.</p>
               <TopNav active="playground" />
               {activeExample ? <p class="example-tag">example: <code>{activeExample}</code></p> : null}
             </div>
@@ -72,9 +72,10 @@ export const Shell: FC<ShellProps> = ({ initialSource, activeExample }) => {
 
           <section class="playground-card mt-6">
             <div class="card-head">
-              <div><p class="system-label">SOURCE</p><h2>Svelte component</h2></div>
-              <div class="actions"><button id="run-preview" class="primary-button">Run</button><button id="compile-server" class="secondary-button">Server JS</button></div>
+              <div><p class="system-label">SOURCE</p><h2>Svelte 5 component</h2></div>
+              <div class="actions"><button id="generate-ui" class="secondary-button">Generate with Workers AI</button><button id="run-preview" class="primary-button">Run</button><button id="compile-server" class="secondary-button">Server JS</button></div>
             </div>
+            <div class="ai-row"><input id="ai-prompt" value="Make a compact Svelte 5 UI for reviewing DNS records before deletion. Use checkboxes and post selected records to the parent window." /></div>
             <textarea id="source" spellCheck={false} class="source-editor" rows={4}>{sample}</textarea>
           </section>
 
@@ -83,9 +84,9 @@ export const Shell: FC<ShellProps> = ({ initialSource, activeExample }) => {
               <div><p class="system-label">RESULT</p><h2 id="status-readout">Preview</h2></div>
               <div class="result-meta"><span id="compile-readout">Svelte {VERSION}</span><span id="roundtrip-readout">idle</span><span id="payload-readout">—</span></div>
             </div>
-            <div class="tabs"><button data-tab="preview" class="tab active-tab">Preview</button><button data-tab="artifacts" class="tab">Artifacts</button><button data-tab="js" class="tab">Client JS</button><button data-tab="css" class="tab">CSS</button><button data-tab="diagnostics" class="tab">Trace</button></div>
+            <div class="tabs"><button data-tab="preview" class="tab active-tab">Preview</button><button data-tab="bundles" class="tab">Bundle</button><button data-tab="js" class="tab">Client JS</button><button data-tab="css" class="tab">CSS</button><button data-tab="diagnostics" class="tab">Trace</button></div>
             <div id="panel-preview" class="panel preview-well"><iframe id="preview" sandbox="allow-scripts" class="h-full w-full bg-white"></iframe></div>
-            <div id="panel-artifacts" class="panel artifacts-panel hidden"><div id="artifact-list" class="artifact-list">Run the component to create artifact URLs.</div></div>
+            <div id="panel-bundles" class="panel bundles-panel hidden"><div id="bundle-list" class="bundle-list">Run the component to create bundle URLs.</div></div>
             <pre id="panel-js" class="panel code-panel hidden"></pre>
             <pre id="panel-css" class="panel code-panel hidden"></pre>
             <pre id="panel-diagnostics" class="panel code-panel hidden">Run the component to see compiler output.</pre>
@@ -94,8 +95,8 @@ export const Shell: FC<ShellProps> = ({ initialSource, activeExample }) => {
         <script>{html`
 const source = document.getElementById('source');
 const preview = document.getElementById('preview');
-const panels = { preview: document.getElementById('panel-preview'), artifacts: document.getElementById('panel-artifacts'), js: document.getElementById('panel-js'), css: document.getElementById('panel-css'), diagnostics: document.getElementById('panel-diagnostics') };
-const artifactList = document.getElementById('artifact-list');
+const panels = { preview: document.getElementById('panel-preview'), bundles: document.getElementById('panel-bundles'), js: document.getElementById('panel-js'), css: document.getElementById('panel-css'), diagnostics: document.getElementById('panel-diagnostics') };
+const bundleList = document.getElementById('bundle-list');
 const tabs = [...document.querySelectorAll('.tab')];
 const statusReadout = document.getElementById('status-readout');
 const compileReadout = document.getElementById('compile-readout');
@@ -104,20 +105,31 @@ const payloadReadout = document.getElementById('payload-readout');
 function autoResize() { source.style.height = 'auto'; source.style.height = Math.max(132, source.scrollHeight) + 'px'; }
 source.addEventListener('input', autoResize);
 function show(tab) { for (const [name, el] of Object.entries(panels)) el.classList.toggle('hidden', name !== tab); for (const button of tabs) button.classList.toggle('active-tab', button.dataset.tab === tab); }
-function artifactRow(name, url, detail) { return '<div class="artifact-row"><div><strong>'+name+'</strong><span>'+detail+'</span></div><div class="artifact-actions"><button data-copy="'+url+'">Copy</button><a href="'+url+'" target="_blank" rel="noreferrer">Open</a></div></div>'; }
-function renderArtifacts(data) {
-  const a = data.artifacts;
-  artifactList.innerHTML = '<div class="artifact-summary"><strong>Artifact '+data.id+'</strong><span>'+data.sourceHash+'</span></div>' +
-    artifactRow('client.js', a.client, data.sizes.clientJs + ' bytes · ' + data.cache.client) +
-    artifactRow('server.js', a.server, data.sizes.serverJs + ' bytes · ' + data.cache.server) +
-    artifactRow('style.css', a.css, data.sizes.css + ' bytes') +
-    artifactRow('preview.html', a.preview, 'openable preview document') +
-    artifactRow('manifest.json', a.manifest, 'artifact metadata');
-  artifactList.querySelectorAll('[data-copy]').forEach(btn => btn.onclick = async () => { await navigator.clipboard.writeText(btn.dataset.copy); btn.textContent = 'Copied'; setTimeout(() => btn.textContent = 'Copy', 900); });
+function bundleRow(name, url, detail) { return '<div class="bundle-row"><div><strong>'+name+'</strong><span>'+detail+'</span></div><div class="bundle-actions"><button data-copy="'+url+'">Copy</button><a href="'+url+'" target="_blank" rel="noreferrer">Open</a></div></div>'; }
+function renderBundle(data) {
+  const a = data.bundles;
+  bundleList.innerHTML = '<div class="bundle-summary"><strong>Bundle '+data.id+'</strong><span>'+data.sourceHash+'</span></div>' +
+    bundleRow('client.js', a.client, data.sizes.clientJs + ' bytes · ' + data.cache.client) +
+    bundleRow('server.js', a.server, data.sizes.serverJs + ' bytes · ' + data.cache.server) +
+    bundleRow('style.css', a.css, data.sizes.css + ' bytes') +
+    bundleRow('preview.html', a.preview, 'openable preview document') +
+    bundleRow('manifest.json', a.manifest, 'bundle metadata');
+  bundleList.querySelectorAll('[data-copy]').forEach(btn => btn.onclick = async () => { await navigator.clipboard.writeText(btn.dataset.copy); btn.textContent = 'Copied'; setTimeout(() => btn.textContent = 'Copy', 900); });
 }
-async function createArtifacts() {
+async function generateUi() {
+  statusReadout.textContent = 'Generating UI…';
+  const prompt = document.getElementById('ai-prompt').value;
+  const res = await fetch('/agent/generate-ui', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ prompt }) });
+  const data = await res.json();
+  panels.diagnostics.textContent = JSON.stringify(data, null, 2);
+  if (!res.ok) { statusReadout.textContent = 'Generation failed'; show('diagnostics'); return; }
+  source.value = data.source; autoResize();
+  await runPreview();
+}
+
+async function createBundle() {
   const t0 = performance.now();
-  const res = await fetch('/artifacts', { method: 'POST', headers: { 'content-type': 'text/plain' }, body: source.value });
+  const res = await fetch('/bundles', { method: 'POST', headers: { 'content-type': 'text/plain' }, body: source.value });
   const data = await res.json();
   const ms = Math.round(performance.now() - t0);
   panels.diagnostics.textContent = JSON.stringify(data, null, 2);
@@ -128,13 +140,14 @@ async function createArtifacts() {
   payloadReadout.textContent = data.sizes.clientJs + ' bytes';
   panels.js.textContent = data.client.js || '';
   panels.css.textContent = data.client.css || '/* no css */';
-  renderArtifacts(data);
+  renderBundle(data);
   return data;
 }
 function previewDocument(moduleUrl, css) { return '<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">' + '<script type="importmap">' + JSON.stringify({ imports: { 'svelte': 'https://esm.sh/svelte@${VERSION}', 'svelte/': 'https://esm.sh/svelte@${VERSION}/' } }) + '<' + '/script>' + '<style>body{font-family:Inter,ui-sans-serif,system-ui;margin:0;padding:2rem;color:#18181b} #app{display:contents}</style><style>' + css.replace(/<\\/style/gi, '<\\\\/style') + '</style></head>' + '<body><div id="app"></div><script type="module">import Component from ' + JSON.stringify(moduleUrl) + '; import { mount } from "svelte"; mount(Component, { target: document.getElementById("app") });<' + '/script></body></html>'; }
-async function runPreview() { const data = await createArtifacts(); if (!data) return; const moduleUrl = 'data:application/javascript;charset=utf-8,' + encodeURIComponent(data.client.js); preview.srcdoc = previewDocument(moduleUrl, data.client.css || ''); show('preview'); }
+async function runPreview() { const data = await createBundle(); if (!data) return; const moduleUrl = 'data:application/javascript;charset=utf-8,' + encodeURIComponent(data.client.js); preview.srcdoc = previewDocument(moduleUrl, data.client.css || ''); show('preview'); }
+document.getElementById('generate-ui').onclick = generateUi;
 document.getElementById('run-preview').onclick = runPreview;
-document.getElementById('compile-server').onclick = async () => { const data = await createArtifacts(); if (data) { panels.js.textContent = data.server.js || ''; show('js'); } };
+document.getElementById('compile-server').onclick = async () => { const data = await createBundle(); if (data) { panels.js.textContent = data.server.js || ''; show('js'); } };
 for (const tab of tabs) tab.onclick = () => show(tab.dataset.tab);
 autoResize(); runPreview();
         `}</script>
@@ -229,8 +242,8 @@ type DocPage = { slug: string; kind: "tutorial" | "reference" | "explanation" | 
 
 export const DOC_PAGES: DocPage[] = [
   { slug: "tutorial-first-edge-widget", kind: "tutorial", title: "Your first edge widget", summary: "Walk through compiling, previewing and rendering a Svelte component from scratch." },
-  { slug: "reference-api", kind: "reference", title: "HTTP API reference", summary: "All routes: /compile, /artifacts, /render, /health." },
-  { slug: "explanation-artifacts-not-repl", kind: "explanation", title: "Artifacts, not a REPL", summary: "Why we hash sources to URLs instead of streaming a session-bound REPL." }
+  { slug: "reference-api", kind: "reference", title: "HTTP API reference", summary: "All routes: /compile, /bundles, /render, /health." },
+  { slug: "explanation-bundles-not-repl", kind: "explanation", title: "Bundles, not a REPL", summary: "Why we hash sources to URLs instead of streaming a session-bound REPL." }
 ];
 
 export const DocsIndex: FC = () => (
@@ -256,7 +269,7 @@ const TutorialPage: FC = () => (
   <article class="doc-body">
     <p class="system-label">GET STARTED</p>
     <h2>Your first edge widget</h2>
-    <p class="lead">Build a tiny Svelte component, compile it on a Worker, preview it in the browser, and copy the generated artifact URLs.</p>
+    <p class="lead">Build a tiny Svelte component, compile it on a Worker, preview it in the browser, and copy the generated bundle URLs.</p>
 
     <div class="callout"><strong>You will make:</strong><ul><li>a live preview</li><li>a <code>client.js</code> module</li><li>a <code>style.css</code> file</li><li>a <code>manifest.json</code> with timings and sizes</li></ul></div>
 
@@ -288,13 +301,13 @@ npm run dev</pre>
 </style>`}</pre>
 
     <h3>3. Click Run</h3>
-    <p>The browser sends your Svelte source to <code>POST /artifacts</code>. The Worker compiles both client and server output and returns a manifest.</p>
-    <ul><li><strong>Preview</strong> mounts the client artifact in a sandboxed iframe.</li><li><strong>Artifacts</strong> shows URLs for generated files.</li><li><strong>Trace</strong> shows the full JSON response.</li></ul>
+    <p>The browser sends your Svelte source to <code>POST /bundles</code>. The Worker compiles both client and server output and returns a manifest.</p>
+    <ul><li><strong>Preview</strong> mounts the client bundle in a sandboxed iframe.</li><li><strong>Bundle</strong> shows URLs for generated files.</li><li><strong>Trace</strong> shows the full JSON response.</li></ul>
 
     <h3>4. Use the output</h3>
-    <p>For an iframe embed, copy <code>preview.html</code> from the Artifacts tab:</p>
+    <p>For an iframe embed, copy <code>preview.html</code> from the Bundle tab:</p>
     <pre class="code-panel">{`<iframe
-  src="https://svelte-edge.coy.workers.dev/artifacts/<hash>/preview.html"
+  src="https://svelte-edge.coy.workers.dev/bundles/<hash>/preview.html"
   style="border:0;width:100%;height:240px"
 ></iframe>`}</pre>
     <p>For a module import, use <code>client.js</code> and Svelte's runtime mount API:</p>
@@ -308,7 +321,7 @@ npm run dev</pre>
 }
 </script>
 <script type="module">
-  import Widget from "https://svelte-edge.coy.workers.dev/artifacts/<hash>/client.js";
+  import Widget from "https://svelte-edge.coy.workers.dev/bundles/<hash>/client.js";
   import { mount } from "svelte";
   mount(Widget, { target: document.getElementById("widget") });
 </script>`}</pre>
@@ -319,14 +332,14 @@ const ReferencePage: FC = () => (
   <article class="doc-body">
     <p class="system-label">API</p>
     <h2>HTTP API reference</h2>
-    <p class="lead">The API is intentionally small: compile source, create artifacts, and read artifacts back by hash.</p>
+    <p class="lead">The API is intentionally small: compile source, create bundles, and read bundles back by hash.</p>
 
     <h3>Limits</h3>
-    <ul><li>Source body: <code>256 KiB</code></li><li>Props query for SSR: <code>32 KiB</code></li><li>Svelte compiler: <code>5.55.5</code></li><li>Artifact URL persistence requires <code>SVELTE_EDGE_CACHE</code></li></ul>
+    <ul><li>Source body: <code>256 KiB</code></li><li>Props query for SSR: <code>32 KiB</code></li><li>Svelte compiler: <code>5.55.5</code></li><li>Bundle URL persistence requires <code>SVELTE_EDGE_CACHE</code></li></ul>
 
-    <h3>POST /artifacts</h3>
+    <h3>POST /bundles</h3>
     <p>Use this when you want a preview plus addressable outputs.</p>
-    <pre class="code-panel">{`curl -sX POST https://svelte-edge.coy.workers.dev/artifacts \\
+    <pre class="code-panel">{`curl -sX POST https://svelte-edge.coy.workers.dev/bundles \\
   -H "content-type: text/plain" \\
   --data '<h1>Hello edge</h1>'`}</pre>
     <p>Response shape:</p>
@@ -335,7 +348,7 @@ const ReferencePage: FC = () => (
   "sourceHash": "a0d436...",
   "svelte": "5.55.5",
   "cache": { "client": "miss", "server": "miss" },
-  "artifacts": {
+  "bundles": {
     "client": ".../client.js",
     "server": ".../server.js",
     "css": ".../style.css",
@@ -352,8 +365,8 @@ const ReferencePage: FC = () => (
   -H "content-type: text/plain" \\
   --data '<button>hello</button>'`}</pre>
 
-    <h3>GET /artifacts/&lt;hash&gt;/&lt;file&gt;</h3>
-    <p>Read a generated artifact. Valid files:</p>
+    <h3>GET /bundles/&lt;hash&gt;/&lt;file&gt;</h3>
+    <p>Read a generated bundle. Valid files:</p>
     <ul><li><code>client.js</code> — browser component module</li><li><code>server.js</code> — SSR compiler output</li><li><code>style.css</code> — scoped CSS</li><li><code>preview.html</code> — standalone iframe document</li><li><code>manifest.json</code> — metadata</li></ul>
 
     <h3>POST /render</h3>
@@ -367,7 +380,7 @@ const ReferencePage: FC = () => (
 const ExplanationPage: FC = () => (
   <article class="doc-body">
     <p class="system-label">WHY</p>
-    <h2>Artifacts, not a REPL</h2>
+    <h2>Bundles, not a REPL</h2>
     <p class="lead">The Svelte Playground is for learning and experimenting. svelte-edge is for giving agents and apps a way to turn Svelte source into URLs they can use immediately.</p>
 
     <h3>The useful primitive</h3>
@@ -377,7 +390,7 @@ const ExplanationPage: FC = () => (
   → share, embed, cache, or hand to an agent`}</pre>
 
     <h3>Why this matters for agents</h3>
-    <p>A small browser model like <code>window.ai</code> can write Svelte on demand, call <code>/artifacts</code>, and return an inline UI instead of a wall of text.</p>
+    <p>A small browser model like <code>window.ai</code> can write Svelte on demand, call <code>/bundles</code>, and return an inline UI instead of a wall of text.</p>
     <ul><li>Need a calculator? The agent generates a live calculator.</li><li>Need a review screen? The agent generates checkboxes and a submit button.</li><li>Need to explain data? The agent generates a tiny dashboard.</li></ul>
 
     <h3>Minimal agent flow</h3>
@@ -385,7 +398,7 @@ const ExplanationPage: FC = () => (
   "Write a Svelte component for a pricing calculator. Return only .svelte source."
 );
 
-const artifact = await fetch("https://svelte-edge.coy.workers.dev/artifacts", {
+const bundle = await fetch("https://svelte-edge.coy.workers.dev/bundles", {
   method: "POST",
   headers: { "content-type": "text/plain" },
   body: source
@@ -393,7 +406,7 @@ const artifact = await fetch("https://svelte-edge.coy.workers.dev/artifacts", {
 
 chat.render({
   type: "iframe",
-  src: artifact.artifacts.preview
+  src: bundle.bundles.preview
 });`}</pre>
 
     <h3>Two-way generated UI</h3>
@@ -413,26 +426,26 @@ chat.render({
 <button onclick={submit}>Use these settings</button>`}</pre>
 
     <h3>What makes this different</h3>
-    <p>The output is not tied to a playground session. It is an artifact graph with stable names and a manifest. That makes it easier to embed in chat, docs, dashboards, CMS previews, or future Dynamic Worker deploys.</p>
+    <p>The output is not tied to a playground session. It is an bundle graph with stable names and a manifest. That makes it easier to embed in chat, docs, dashboards, CMS previews, or future Dynamic Worker deploys.</p>
   </article>
 );
 
 const docComponents: Record<string, FC> = {
   "tutorial-first-edge-widget": TutorialPage,
   "reference-api": ReferencePage,
-  "explanation-artifacts-not-repl": ExplanationPage
+  "explanation-bundles-not-repl": ExplanationPage
 };
 
 function prevDoc(slug: string) {
-  const order = ["tutorial-first-edge-widget", "reference-api", "explanation-artifacts-not-repl"];
-  const labels: Record<string, string> = { "tutorial-first-edge-widget": "First widget", "reference-api": "API reference", "explanation-artifacts-not-repl": "Why artifacts" };
+  const order = ["tutorial-first-edge-widget", "reference-api", "explanation-bundles-not-repl"];
+  const labels: Record<string, string> = { "tutorial-first-edge-widget": "First widget", "reference-api": "API reference", "explanation-bundles-not-repl": "Why bundles" };
   const i = order.indexOf(slug);
   if (i <= 0) return { href: "/docs", label: "Docs" };
   return { href: `/docs/${order[i - 1]}`, label: labels[order[i - 1]] };
 }
 function nextDoc(slug: string) {
-  const order = ["tutorial-first-edge-widget", "reference-api", "explanation-artifacts-not-repl"];
-  const labels: Record<string, string> = { "tutorial-first-edge-widget": "First widget", "reference-api": "API reference", "explanation-artifacts-not-repl": "Why artifacts" };
+  const order = ["tutorial-first-edge-widget", "reference-api", "explanation-bundles-not-repl"];
+  const labels: Record<string, string> = { "tutorial-first-edge-widget": "First widget", "reference-api": "API reference", "explanation-bundles-not-repl": "Why bundles" };
   const i = order.indexOf(slug);
   if (i === -1 || i >= order.length - 1) return undefined;
   return { href: `/docs/${order[i + 1]}`, label: labels[order[i + 1]] };

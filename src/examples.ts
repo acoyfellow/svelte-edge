@@ -1,4 +1,4 @@
-// Curated Svelte component examples that ship with the playground.
+// Curated Svelte 5 component examples that ship with the playground.
 // Each entry is addressable by slug at /examples/:slug and can be
 // loaded into the playground via /?example=slug.
 
@@ -13,7 +13,7 @@ export type Example = {
 const counter: Example = {
   slug: "counter",
   title: "Counter",
-  summary: "A reactive counter using Svelte 5 runes. Click the button; state updates without ceremony.",
+  summary: "A reactive counter using Svelte 5 runes.",
   tags: ["runes", "state"],
   source: `<script>
   let count = $state(0);
@@ -22,24 +22,14 @@ const counter: Example = {
 <button onclick={() => count += 1}>count: {count}</button>
 
 <style>
-  button {
-    font: inherit;
-    padding: .55rem 1rem;
-    border-radius: .75rem;
-    border: 0;
-    background: #ff3e00;
-    color: white;
-    cursor: pointer;
-  }
-  button:hover { filter: brightness(1.06); }
-</style>
-`
+  button { font: 700 16px system-ui; padding: 12px 18px; border: 0; border-radius: 12px; background: #ff5a1f; color: white; }
+</style>`
 };
 
 const greet: Example = {
   slug: "greet",
   title: "Hello, props",
-  summary: "Props with $props(). Renders deterministically with /render for SSR — no client JS required.",
+  summary: "Props with $props(). Good for static/SSR-style bundles.",
   tags: ["props", "ssr"],
   source: `<script>
   let { name = "edge" } = $props();
@@ -48,41 +38,77 @@ const greet: Example = {
 <h1>Hello, {name}!</h1>
 
 <style>
-  h1 {
-    font: 700 2rem/1.1 ui-sans-serif, system-ui;
-    color: #18181b;
-    margin: 0;
-  }
-</style>
-`
+  h1 { font: 800 2.25rem/1 ui-sans-serif, system-ui; color: #18181b; margin: 0; }
+</style>`
 };
 
-const derived: Example = {
-  slug: "derived",
-  title: "Derived state",
-  summary: "Compute values with $derived; updates flow automatically when inputs change.",
-  tags: ["runes", "derived"],
+const pricing: Example = {
+  slug: "pricing-calculator",
+  title: "Pricing calculator",
+  summary: "A tiny embeddable calculator with $state and $derived.",
+  tags: ["runes", "calculator"],
   source: `<script>
-  let count = $state(1);
-  let doubled = $derived(count * 2);
+  let seats = $state(10);
+  let plan = $state(29);
+  let monthly = $derived(seats * plan);
+  let annual = $derived(monthly * 12 * 0.8);
 </script>
 
-<div class="row">
-  <button onclick={() => count += 1}>increment</button>
-  <p>count: {count} · doubled: {doubled}</p>
-</div>
+<section>
+  <h2>Pricing calculator</h2>
+  <label>Seats <input type="range" min="1" max="100" bind:value={seats}> <strong>{seats}</strong></label>
+  <label>Plan <select bind:value={plan}><option value={29}>Starter — $29</option><option value={79}>Pro — $79</option><option value={199}>Business — $199</option></select></label>
+  <div class="total"><span>Annual estimate</span><strong>{annual.toLocaleString()}</strong></div>
+</section>
 
 <style>
-  .row { display: flex; align-items: center; gap: 1rem; font: 500 1rem/1.4 ui-sans-serif, system-ui; }
-  button { font: inherit; padding: .4rem .8rem; border-radius: .55rem; border: 1px solid #ddd; background: #fff; cursor: pointer; }
-</style>
-`
+  section{font:16px system-ui;padding:24px;max-width:420px;border-radius:24px;background:linear-gradient(#fff,#fff8f3);border:1px solid #f1d4c4}
+  label{display:grid;gap:8px;margin:16px 0}.total{display:flex;justify-content:space-between;align-items:baseline;margin-top:20px;padding-top:20px;border-top:1px solid #eee}.total strong{font-size:32px}
+</style>`
 };
 
-const effectClock: Example = {
+const agentReview: Example = {
+  slug: "agent-review-ui",
+  title: "Agent review UI",
+  summary: "An agent-generated approval form that posts structured data back to the host page.",
+  tags: ["agents", "postMessage"],
+  source: `<script>
+  let records = $state([
+    { id: 'old', name: 'old.example.com', type: 'A', value: '192.0.2.1', selected: true },
+    { id: 'test', name: 'test.example.com', type: 'CNAME', value: 'workers.dev', selected: true },
+    { id: 'stage', name: 'staging.example.com', type: 'A', value: '192.0.2.2', selected: false }
+  ]);
+  let selected = $derived(records.filter((record) => record.selected));
+
+  function submit() {
+    parent.postMessage({
+      type: 'svelte-edge:submit',
+      value: { selectedRecords: selected.map((record) => record.id) }
+    }, '*');
+  }
+</script>
+
+<section>
+  <h2>Review DNS cleanup</h2>
+  <p>{selected.length} records selected</p>
+  {#each records as record}
+    <label class="row">
+      <input type="checkbox" bind:checked={record.selected} />
+      <span><strong>{record.name}</strong><small>{record.type} → {record.value}</small></span>
+    </label>
+  {/each}
+  <button disabled={selected.length === 0} onclick={submit}>Continue with {selected.length} records</button>
+</section>
+
+<style>
+  section{font:15px system-ui;max-width:560px;padding:24px;border-radius:24px;background:#fff;border:1px solid #e5e0d8}.row{display:flex;gap:12px;align-items:center;padding:12px 0;border-top:1px solid #eee}small{display:block;color:#777}button{margin-top:18px;width:100%;border:0;border-radius:14px;padding:12px;background:#ff5a1f;color:white;font-weight:800}button:disabled{background:#ddd}
+</style>`
+};
+
+const clock: Example = {
   slug: "clock",
   title: "Effect clock",
-  summary: "Use $effect for side effects — set up an interval on mount, tear it down on cleanup.",
+  summary: "Use $effect for side effects and cleanup.",
   tags: ["effect", "lifecycle"],
   source: `<script>
   let now = $state(new Date());
@@ -94,90 +120,26 @@ const effectClock: Example = {
 
 <p>{now.toLocaleTimeString()}</p>
 
-<style>
-  p { font: 600 1.4rem/1 ui-monospace, SFMono-Regular, Menlo, monospace; color: #18181b; }
-</style>
-`
-};
-
-const todo: Example = {
-  slug: "todo",
-  title: "Todo list",
-  summary: "Lists, bindings and conditional rendering. Demonstrates idiomatic Svelte 5 with mutating arrays.",
-  tags: ["lists", "bindings"],
-  source: `<script>
-  let items = $state([
-    { id: 1, text: "compile at the edge", done: true },
-    { id: 2, text: "render somewhere useful", done: false }
-  ]);
-  let draft = $state("");
-
-  function add() {
-    const text = draft.trim();
-    if (!text) return;
-    items = [...items, { id: Date.now(), text, done: false }];
-    draft = "";
-  }
-</script>
-
-<form onsubmit={(e) => { e.preventDefault(); add(); }}>
-  <input bind:value={draft} placeholder="next thing to ship" />
-  <button type="submit">add</button>
-</form>
-
-<ul>
-  {#each items as item (item.id)}
-    <li class:done={item.done}>
-      <label>
-        <input type="checkbox" bind:checked={item.done} />
-        {item.text}
-      </label>
-    </li>
-  {/each}
-</ul>
-
-<style>
-  form { display: flex; gap: .5rem; margin: 0 0 1rem; }
-  input[type=text], input:not([type]) { flex: 1; padding: .45rem .7rem; border-radius: .55rem; border: 1px solid #ddd; font: inherit; }
-  button { padding: .45rem .9rem; border-radius: .55rem; border: 0; background: #ff3e00; color: white; cursor: pointer; }
-  ul { list-style: none; padding: 0; margin: 0; display: grid; gap: .25rem; font: 500 .95rem/1.4 ui-sans-serif, system-ui; }
-  li.done label { text-decoration: line-through; color: #888; }
-  label { display: flex; gap: .55rem; align-items: center; }
-</style>
-`
+<style>p{font:700 1.5rem/1 ui-monospace,monospace;color:#18181b}</style>`
 };
 
 const card: Example = {
   slug: "card",
   title: "Stateless card",
-  summary: "A purely presentational component — perfect for SSR. No runtime needed in the browser.",
-  tags: ["ssr", "static"],
+  summary: "A presentational component with $props().",
+  tags: ["props", "static"],
   source: `<script>
-  let { title = "edge artifacts", body = "Compile once. Cache by hash. Serve as URLs." } = $props();
+  let { title = "edge bundles", body = "Compile once. Cache by hash. Serve as URLs." } = $props();
 </script>
 
-<article>
-  <h2>{title}</h2>
-  <p>{body}</p>
-</article>
+<article><h2>{title}</h2><p>{body}</p></article>
 
 <style>
-  article {
-    border: 1px solid #e6e3dc;
-    border-radius: 1rem;
-    padding: 1.4rem 1.6rem;
-    background: linear-gradient(180deg,#fff,#fffaf3);
-    font: 500 1rem/1.55 ui-sans-serif, system-ui;
-    color: #1d1b18;
-    max-width: 36rem;
-  }
-  h2 { margin: 0 0 .5rem; font-size: 1.2rem; font-weight: 760; }
-  p { margin: 0; color: #4a463e; }
-</style>
-`
+  article{border:1px solid #e6e3dc;border-radius:1rem;padding:1.4rem 1.6rem;background:linear-gradient(180deg,#fff,#fffaf3);font:500 1rem/1.55 ui-sans-serif,system-ui;color:#1d1b18;max-width:36rem}h2{margin:0 0 .5rem;font-size:1.2rem;font-weight:760}p{margin:0;color:#4a463e}
+</style>`
 };
 
-export const EXAMPLES: Example[] = [counter, greet, derived, effectClock, todo, card];
+export const EXAMPLES: Example[] = [counter, agentReview, pricing, greet, clock, card];
 
 export function getExample(slug: string): Example | undefined {
   return EXAMPLES.find((e) => e.slug === slug);

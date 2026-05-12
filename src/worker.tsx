@@ -13,6 +13,7 @@ export interface Env {
   // Object that single-flights duplicate writers for the same cache key.
   // See src/cache-coordinator.ts and DO-COORDINATOR.md.
   SVELTE_EDGE_COORDINATOR?: DurableObjectNamespace;
+  AI?: Ai;
 }
 
 // Re-export so wrangler can find the DO class on the worker entry module.
@@ -125,6 +126,36 @@ async function getOrCompile(source: string, mode: CompileMode, env: Env, ctx: Ex
   return { sourceHash, key, payload, cache: "miss" as const };
 }
 
+function extractSvelte(text: string): string {
+  const fenced = text.match(/```(?:svelte)?\s*([\s\S]*?)```/i);
+  return (fenced ? fenced[1] : text).trim();
+}
+
+async function createBundleManifest(source: string, env: Env, ctx: ExecutionContext, origin: string) {
+  const client = await getOrCompile(source, "client", env, ctx);
+  const server = await getOrCompile(source, "server", env, ctx);
+  const manifest = {
+    id: client.sourceHash.slice(0, 12),
+    sourceHash: client.sourceHash,
+    svelte: VERSION,
+    cache: { client: client.cache, server: server.cache },
+    bundles: {
+      client: `${origin}/bundles/${client.sourceHash}/client.js`,
+      server: `${origin}/bundles/${client.sourceHash}/server.js`,
+      css: `${origin}/bundles/${client.sourceHash}/style.css`,
+      preview: `${origin}/bundles/${client.sourceHash}/preview.html`,
+      manifest: `${origin}/bundles/${client.sourceHash}/manifest.json`
+    },
+    sizes: { clientJs: client.payload.jsBytes, serverJs: server.payload.jsBytes, css: client.payload.cssBytes },
+    timings: { clientCompileMs: client.payload.compileMs, serverCompileMs: server.payload.compileMs }
+  };
+  if (env.SVELTE_EDGE_CACHE) {
+    ctx.waitUntil(env.SVELTE_EDGE_CACHE.put(`bundle:${client.sourceHash}:source`, source, { expirationTtl: CACHE_TTL_SECONDS }));
+    ctx.waitUntil(env.SVELTE_EDGE_CACHE.put(`bundle:${client.sourceHash}:manifest`, JSON.stringify(manifest), { expirationTtl: CACHE_TTL_SECONDS }));
+  }
+  return { ...manifest, client: client.payload, server: server.payload };
+}
+
 function transformSsr(code: string): string {
   // Strip the internal import and turn `export default function` into `return function`.
   // The compiled SSR output is small and we control the compiler version, so a regex transform is acceptable here.
@@ -187,38 +218,34 @@ export default {
         });
       }
 
-      if (request.method === "POST" && url.pathname === "/artifacts") {
+      if (request.method === "POST" && (url.pathname === "/bundles" || url.pathname === "/artifacts")) {
         const source = await readSource(request);
-        const client = await getOrCompile(source, "client", env, ctx);
-        const server = await getOrCompile(source, "server", env, ctx);
-        const origin = url.origin;
-        const manifest = {
-          id: client.sourceHash.slice(0, 12),
-          sourceHash: client.sourceHash,
-          svelte: VERSION,
-          cache: { client: client.cache, server: server.cache },
-          artifacts: {
-            client: `${origin}/artifacts/${client.sourceHash}/client.js`,
-            server: `${origin}/artifacts/${client.sourceHash}/server.js`,
-            css: `${origin}/artifacts/${client.sourceHash}/style.css`,
-            preview: `${origin}/artifacts/${client.sourceHash}/preview.html`,
-            manifest: `${origin}/artifacts/${client.sourceHash}/manifest.json`
-          },
-          sizes: { clientJs: client.payload.jsBytes, serverJs: server.payload.jsBytes, css: client.payload.cssBytes },
-          timings: { clientCompileMs: client.payload.compileMs, serverCompileMs: server.payload.compileMs }
-        };
-        if (env.SVELTE_EDGE_CACHE) {
-          ctx.waitUntil(env.SVELTE_EDGE_CACHE.put(`artifact:${client.sourceHash}:source`, source, { expirationTtl: CACHE_TTL_SECONDS }));
-          ctx.waitUntil(env.SVELTE_EDGE_CACHE.put(`artifact:${client.sourceHash}:manifest`, JSON.stringify(manifest), { expirationTtl: CACHE_TTL_SECONDS }));
-        }
-        return json({ ...manifest, client: client.payload, server: server.payload, requestId: rid });
+        const bundle = await createBundleManifest(source, env, ctx, url.origin);
+        return json({ ...bundle, artifacts: bundle.bundles, requestId: rid });
       }
 
-      const artifactMatch = url.pathname.match(/^\/artifacts\/([a-f0-9]{64})\/(client\.js|server\.js|style\.css|manifest\.json|preview\.html)$/);
-      if (request.method === "GET" && artifactMatch) {
-        const [, hash, file] = artifactMatch;
-        const source = await env.SVELTE_EDGE_CACHE?.get(`artifact:${hash}:source`);
-        if (!source) throw new HttpError("artifact_not_found", "artifact source is not stored; POST /artifacts first with KV enabled", 404);
+      if (request.method === "POST" && url.pathname === "/agent/generate-ui") {
+        if (!env.AI) throw new HttpError("ai_not_configured", "Workers AI binding is not configured", 501);
+        const body = await request.json().catch(() => null) as { prompt?: string } | null;
+        const prompt = body?.prompt?.trim();
+        if (!prompt) throw new HttpError("empty_prompt", "prompt is required", 400);
+        const aiResult = await env.AI.run("@cf/meta/llama-3.1-8b-instruct", {
+          messages: [
+            { role: "system", content: "You write Svelte 5 components using runes. Return only .svelte source. No markdown. No explanation. Rules: use let x = $state(initial) for mutable state; use let x = $derived(expression) for derived values; use let { prop = defaultValue } = $props() for props; never use export let; never use $: reactive labels; use onclick/onsubmit event attributes; keep components self-contained with <style>. If the UI should submit data, use parent.postMessage({ type: 'svelte-edge:submit', value }, '*')." },
+            { role: "user", content: prompt }
+          ]
+        }) as { response?: string };
+        const source = extractSvelte(aiResult.response ?? "");
+        if (!source.includes("<")) throw new HttpError("bad_ai_output", "model did not return Svelte source", 502, { response: aiResult.response });
+        const bundle = await createBundleManifest(source, env, ctx, url.origin);
+        return json({ source, bundle, model: "@cf/meta/llama-3.1-8b-instruct", requestId: rid });
+      }
+
+      const bundleMatch = url.pathname.match(/^\/(?:bundles|artifacts)\/([a-f0-9]{64})\/(client\.js|server\.js|style\.css|manifest\.json|preview\.html)$/);
+      if (request.method === "GET" && bundleMatch) {
+        const [, hash, file] = bundleMatch;
+        const source = await env.SVELTE_EDGE_CACHE?.get(`bundle:${hash}:source`) ?? await env.SVELTE_EDGE_CACHE?.get(`artifact:${hash}:source`);
+        if (!source) throw new HttpError("bundle_not_found", "bundle source is not stored; POST /bundles first with KV enabled", 404);
         const client = file !== "server.js" ? await getOrCompile(source, "client", env, ctx) : null;
         const server = file === "server.js" || file === "manifest.json" ? await getOrCompile(source, "server", env, ctx) : null;
         if (file === "client.js") return new Response(client!.payload.js, { headers: { "content-type": "application/javascript; charset=utf-8", ...CORS_HEADERS } });
@@ -228,7 +255,7 @@ export default {
           const html = `<!doctype html><html><head><meta charset="utf-8"><script type="importmap">${JSON.stringify({ imports: { svelte: `https://esm.sh/svelte@${VERSION}`, "svelte/": `https://esm.sh/svelte@${VERSION}/` } })}</script><style>${client!.payload.css}</style></head><body><div id="app"></div><script type="module">import Component from './client.js'; import { mount } from 'svelte'; mount(Component, { target: document.getElementById('app') });</script></body></html>`;
           return new Response(html, { headers: { "content-type": "text/html; charset=utf-8", ...CORS_HEADERS } });
         }
-        const manifest = await env.SVELTE_EDGE_CACHE?.get(`artifact:${hash}:manifest`, "json");
+        const manifest = await env.SVELTE_EDGE_CACHE?.get(`bundle:${hash}:manifest`, "json");
         return json(manifest ?? { sourceHash: hash });
       }
 
