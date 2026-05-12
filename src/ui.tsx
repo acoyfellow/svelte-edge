@@ -2,6 +2,7 @@
 import { html } from "hono/html";
 import type { FC } from "hono/jsx";
 import { VERSION } from "svelte/compiler";
+import styles from "./styles.css?inline";
 
 export const Shell: FC = () => {
   const sample = `<script>let count = 0;</script>\n<button onclick={() => count += 1}>count: {count}</button>\n<style>button{font:inherit;padding:.5rem 1rem;border-radius:.75rem;background:#ff3e00;color:white}</style>`;
@@ -11,7 +12,7 @@ export const Shell: FC = () => {
         <meta charset="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <title>svelte-edge playground</title>
-        <script src="https://cdn.tailwindcss.com"></script>
+        <style>{styles}</style>
       </head>
       <body class="min-h-screen bg-zinc-950 text-zinc-100">
         <main class="mx-auto flex min-h-screen max-w-7xl flex-col gap-6 p-4 md:p-8">
@@ -103,7 +104,7 @@ function previewDocument(moduleUrl, css) {
   return '<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">' +
     '<script type="importmap">' + JSON.stringify({ imports: { 'svelte/': 'https://esm.sh/svelte@${VERSION}/' } }) + '<' + '/script>' +
     '<style>body{font-family:ui-sans-serif,system-ui;margin:0;padding:2rem;color:#18181b} #app{display:contents}</style><style>' + css.replace(/<\\/style/gi, '<\\\\/style') + '</style></head>' +
-    '<body><div id="app"></div><script type="module">import Component from ' + JSON.stringify(moduleUrl) + '; new Component({ target: document.getElementById("app") });<' + '/script></body></html>';
+    '<body><div id="app"></div><script type="module">import Component from ' + JSON.stringify(moduleUrl) + '; Component(document.getElementById("app"));<' + '/script></body></html>';
 }
 async function runPreview() {
   const json = await compile('client');

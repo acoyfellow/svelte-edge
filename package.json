@@ -7,12 +7,13 @@
   "scripts": {
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
-    "check": "tsc --noEmit",
+    "check": "npm run css && tsc --noEmit",
     "bench:local": "tsx scripts/bench-local.ts",
     "report": "tsx scripts/experiment-report.ts",
-    "build": "wrangler deploy --dry-run --outdir dist",
+    "build": "npm run css && wrangler deploy --dry-run --outdir dist",
     "bench:http": "tsx scripts/bench-http.ts",
-    "bench:concurrent": "tsx scripts/bench-concurrent.ts"
+    "bench:concurrent": "tsx scripts/bench-concurrent.ts",
+    "css": "tailwindcss -i ./src/input.css -o ./src/styles.css --minify"
   },
   "dependencies": {
     "hono": "^4.12.18",
@@ -20,7 +21,9 @@
   },
   "devDependencies": {
     "@cloudflare/workers-types": "latest",
+    "@tailwindcss/cli": "^4.3.0",
     "@types/node": "^25.7.0",
+    "tailwindcss": "^4.3.0",
     "tsx": "latest",
     "typescript": "latest",
     "wrangler": "latest"
