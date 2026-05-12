@@ -49,7 +49,7 @@ export const Shell: FC = () => {
                   <span id="meta" class="text-xs text-zinc-500">idle</span>
                 </div>
                 <div id="panel-preview" class="panel h-[440px] bg-white">
-                  <iframe id="preview" sandbox="allow-scripts allow-same-origin" class="h-full w-full bg-white"></iframe>
+                  <iframe id="preview" sandbox="allow-scripts" class="h-full w-full bg-white"></iframe>
                 </div>
                 <pre id="panel-js" class="panel hidden h-[440px] overflow-auto whitespace-pre-wrap p-4 text-xs leading-5 text-zinc-300"></pre>
                 <pre id="panel-css" class="panel hidden h-[440px] overflow-auto whitespace-pre-wrap p-4 text-xs leading-5 text-zinc-300"></pre>
@@ -104,7 +104,7 @@ function previewDocument(moduleUrl, css) {
   return '<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">' +
     '<script type="importmap">' + JSON.stringify({ imports: { 'svelte': 'https://esm.sh/svelte@${VERSION}', 'svelte/': 'https://esm.sh/svelte@${VERSION}/' } }) + '<' + '/script>' +
     '<style>body{font-family:ui-sans-serif,system-ui;margin:0;padding:2rem;color:#18181b} #app{display:contents}</style><style>' + css.replace(/<\\/style/gi, '<\\\\/style') + '</style></head>' +
-    '<body><div id="app"></div><script>window.addEventListener("error",e=>{document.body.insertAdjacentHTML("beforeend","<pre style=\\"color:red\\">"+e.message+"</pre>")});<' + '/script><script type="module">import Component from ' + JSON.stringify(moduleUrl) + '; import { mount } from "svelte"; mount(Component, { target: document.getElementById("app") });<' + '/script></body></html>';
+    '<body><div id="app"></div><script type="module">import Component from ' + JSON.stringify(moduleUrl) + '; import { mount } from "svelte"; mount(Component, { target: document.getElementById("app") });<' + '/script></body></html>';
 }
 async function runPreview() {
   const json = await compile('client');
