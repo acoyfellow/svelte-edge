@@ -73,7 +73,6 @@ const panels = {
   diagnostics: document.getElementById('panel-diagnostics')
 };
 const tabs = [...document.querySelectorAll('.tab')];
-let lastBlobUrl;
 function show(tab) {
   for (const [name, el] of Object.entries(panels)) el.classList.toggle('hidden', name !== tab);
   for (const button of tabs) {
@@ -109,9 +108,12 @@ function previewDocument(moduleUrl, css) {
 async function runPreview() {
   const json = await compile('client');
   if (!json) return;
-  if (lastBlobUrl) URL.revokeObjectURL(lastBlobUrl);
-  lastBlobUrl = URL.createObjectURL(new Blob([json.js], { type: 'application/javascript' }));
-  preview.srcdoc = previewDocument(lastBlobUrl, json.css || '');
+  // Do not use blob: URLs here. A sandboxed srcdoc iframe has an opaque
+  // origin in production browsers, so loading a parent-origin blob URL is
+  // blocked as a local resource. Instead, inline the compiled module in a
+  // data: URL. This keeps the preview self-contained inside the iframe.
+  const moduleUrl = 'data:application/javascript;charset=utf-8,' + encodeURIComponent(json.js);
+  preview.srcdoc = previewDocument(moduleUrl, json.css || '');
   show('preview');
 }
 document.getElementById('run-preview').onclick = runPreview;
