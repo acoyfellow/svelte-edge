@@ -19,66 +19,105 @@ export const Shell: FC = () => {
             <div>
               <p class="text-sm font-medium uppercase tracking-[0.3em] text-orange-400">Svelte on Workers</p>
               <h1 class="mt-2 text-4xl font-semibold tracking-tight md:text-6xl">svelte-edge</h1>
-              <p class="mt-3 max-w-2xl text-zinc-400">Compile Svelte {VERSION} on a Cloudflare Worker. This is a tiny REPL/playground for the edge compiler experiment.</p>
+              <p class="mt-3 max-w-2xl text-zinc-400">Compile Svelte {VERSION} on a Cloudflare Worker, then render the result in a sandboxed browser preview.</p>
             </div>
             <a class="rounded-full border border-zinc-700 px-4 py-2 text-sm text-zinc-300 hover:border-orange-400 hover:text-orange-300" href="https://github.com/acoyfellow/svelte-edge">GitHub</a>
           </header>
 
-          <section class="grid flex-1 gap-4 lg:grid-cols-2">
-            <div class="flex min-h-[560px] flex-col overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-900/70 shadow-2xl">
+          <section class="grid flex-1 gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
+            <div class="flex min-h-[640px] flex-col overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-900/70 shadow-2xl">
               <div class="flex items-center justify-between border-b border-zinc-800 px-4 py-3">
                 <h2 class="font-medium">Source</h2>
                 <div class="flex gap-2">
-                  <button id="compile-client" class="rounded-lg bg-orange-500 px-3 py-1.5 text-sm font-medium text-white hover:bg-orange-400">Compile client</button>
-                  <button id="compile-server" class="rounded-lg border border-zinc-700 px-3 py-1.5 text-sm text-zinc-200 hover:border-zinc-500">Compile server</button>
+                  <button id="run-preview" class="rounded-lg bg-orange-500 px-3 py-1.5 text-sm font-medium text-white hover:bg-orange-400">Run preview</button>
+                  <button id="compile-server" class="rounded-lg border border-zinc-700 px-3 py-1.5 text-sm text-zinc-200 hover:border-zinc-500">Server JS</button>
                 </div>
               </div>
               <textarea id="source" spellCheck={false} class="flex-1 resize-none bg-zinc-950 p-4 font-mono text-sm leading-6 text-zinc-100 outline-none">{sample}</textarea>
             </div>
 
-            <div class="grid gap-4">
+            <div class="grid min-h-[640px] grid-rows-[auto_1fr_auto] gap-4">
               <section class="overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-900/70">
                 <div class="flex items-center justify-between border-b border-zinc-800 px-4 py-3">
-                  <h2 class="font-medium">Result</h2>
+                  <div class="flex gap-2 text-sm">
+                    <button data-tab="preview" class="tab rounded-md bg-zinc-800 px-3 py-1 text-zinc-100">Preview</button>
+                    <button data-tab="js" class="tab rounded-md px-3 py-1 text-zinc-400 hover:text-zinc-100">JS</button>
+                    <button data-tab="css" class="tab rounded-md px-3 py-1 text-zinc-400 hover:text-zinc-100">CSS</button>
+                    <button data-tab="diagnostics" class="tab rounded-md px-3 py-1 text-zinc-400 hover:text-zinc-100">Diagnostics</button>
+                  </div>
                   <span id="meta" class="text-xs text-zinc-500">idle</span>
                 </div>
-                <pre id="output" class="max-h-[360px] overflow-auto whitespace-pre-wrap p-4 text-xs leading-5 text-zinc-300">Click compile.</pre>
+                <div id="panel-preview" class="panel h-[440px] bg-white">
+                  <iframe id="preview" sandbox="allow-scripts" class="h-full w-full bg-white"></iframe>
+                </div>
+                <pre id="panel-js" class="panel hidden h-[440px] overflow-auto whitespace-pre-wrap p-4 text-xs leading-5 text-zinc-300"></pre>
+                <pre id="panel-css" class="panel hidden h-[440px] overflow-auto whitespace-pre-wrap p-4 text-xs leading-5 text-zinc-300"></pre>
+                <pre id="panel-diagnostics" class="panel hidden h-[440px] overflow-auto whitespace-pre-wrap p-4 text-xs leading-5 text-zinc-300">Click Run preview.</pre>
               </section>
-              <section class="overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-900/70">
-                <div class="border-b border-zinc-800 px-4 py-3"><h2 class="font-medium">CSS</h2></div>
-                <pre id="css" class="max-h-[180px] overflow-auto whitespace-pre-wrap p-4 text-xs leading-5 text-zinc-300"></pre>
-              </section>
+
               <section class="rounded-2xl border border-zinc-800 bg-zinc-900/70 p-4 text-sm text-zinc-400">
-                <p><span class="text-zinc-200">API:</span> POST <code class="text-orange-300">/compile?mode=client|server</code></p>
-                <p class="mt-2"><span class="text-zinc-200">Note:</span> SSR render is documented as an experiment, but same-isolate eval is blocked by workerd string-code-generation restrictions.</p>
+                <p><span class="text-zinc-200">How it works:</span> Worker compiles Svelte client JS. The browser preview uses an iframe, an import map for Svelte runtime modules, and a blob module for the compiled component.</p>
+                <p class="mt-2"><span class="text-zinc-200">API:</span> POST <code class="text-orange-300">/compile?mode=client|server</code></p>
               </section>
             </div>
           </section>
         </main>
         <script>{html`
 const source = document.getElementById('source');
-const output = document.getElementById('output');
-const css = document.getElementById('css');
 const meta = document.getElementById('meta');
+const preview = document.getElementById('preview');
+const panels = {
+  preview: document.getElementById('panel-preview'),
+  js: document.getElementById('panel-js'),
+  css: document.getElementById('panel-css'),
+  diagnostics: document.getElementById('panel-diagnostics')
+};
+const tabs = [...document.querySelectorAll('.tab')];
+let lastBlobUrl;
+function show(tab) {
+  for (const [name, el] of Object.entries(panels)) el.classList.toggle('hidden', name !== tab);
+  for (const button of tabs) {
+    const active = button.dataset.tab === tab;
+    button.classList.toggle('bg-zinc-800', active);
+    button.classList.toggle('text-zinc-100', active);
+    button.classList.toggle('text-zinc-400', !active);
+  }
+}
 async function compile(mode) {
   meta.textContent = 'compiling ' + mode + '...';
-  output.textContent = '';
-  css.textContent = '';
   const t0 = performance.now();
   const res = await fetch('/compile?mode=' + mode, { method: 'POST', headers: { 'content-type': 'text/plain' }, body: source.value });
   const json = await res.json();
   const ms = Math.round(performance.now() - t0);
+  panels.diagnostics.textContent = JSON.stringify(json, null, 2);
   if (!res.ok) {
     meta.textContent = 'error · ' + ms + 'ms';
-    output.textContent = JSON.stringify(json, null, 2);
-    return;
+    show('diagnostics');
+    return null;
   }
   meta.textContent = json.cache + ' · compile ' + json.compileMs + 'ms · roundtrip ' + ms + 'ms · ' + json.jsBytes + ' bytes';
-  output.textContent = json.js || JSON.stringify(json, null, 2);
-  css.textContent = json.css || '/* no css */';
+  panels.js.textContent = json.js || '';
+  panels.css.textContent = json.css || '/* no css */';
+  return json;
 }
-document.getElementById('compile-client').onclick = () => compile('client');
-document.getElementById('compile-server').onclick = () => compile('server');
+function previewDocument(moduleUrl, css) {
+  return '<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">' +
+    '<script type="importmap">' + JSON.stringify({ imports: { 'svelte/': 'https://esm.sh/svelte@${VERSION}/' } }) + '<' + '/script>' +
+    '<style>body{font-family:ui-sans-serif,system-ui;margin:0;padding:2rem;color:#18181b} #app{display:contents}</style><style>' + css.replace(/<\\/style/gi, '<\\\\/style') + '</style></head>' +
+    '<body><div id="app"></div><script type="module">import Component from ' + JSON.stringify(moduleUrl) + '; new Component({ target: document.getElementById("app") });<' + '/script></body></html>';
+}
+async function runPreview() {
+  const json = await compile('client');
+  if (!json) return;
+  if (lastBlobUrl) URL.revokeObjectURL(lastBlobUrl);
+  lastBlobUrl = URL.createObjectURL(new Blob([json.js], { type: 'application/javascript' }));
+  preview.srcdoc = previewDocument(lastBlobUrl, json.css || '');
+  show('preview');
+}
+document.getElementById('run-preview').onclick = runPreview;
+document.getElementById('compile-server').onclick = async () => { await compile('server'); show('js'); };
+for (const tab of tabs) tab.onclick = () => show(tab.dataset.tab);
+runPreview();
         `}</script>
       </body>
     </html>
