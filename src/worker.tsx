@@ -1,6 +1,7 @@
 import { compile, VERSION } from "svelte/compiler";
 import { renderToString } from "hono/jsx/dom/server";
 import { AgentHome, Shell, ExamplesIndex, ExampleDetail, DocsIndex, DocPageView } from "./ui";
+import { ogImagePngBase64 } from "./og-image.generated";
 import { EXAMPLES, getExample } from "./examples";
 // `svelte/internal/server` has no public type declarations; we depend on the runtime export only.
 // @ts-expect-error - private subpath; only used to provide the `$` namespace to evaluated SSR output.
@@ -186,6 +187,11 @@ export default {
     try {
       if (request.method === "OPTIONS") {
         return new Response(null, { headers: CORS_HEADERS });
+      }
+
+      if (request.method === "GET" && url.pathname === "/og/index.png") {
+        const bytes = Uint8Array.from(atob(ogImagePngBase64), (c) => c.charCodeAt(0));
+        return new Response(bytes, { headers: { "content-type": "image/png", "cache-control": "public, max-age=31536000, immutable", ...CORS_HEADERS } });
       }
       if (request.method === "GET" && url.pathname === "/") {
         const example = url.searchParams.get("example");
