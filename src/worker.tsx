@@ -24,13 +24,14 @@ type CompileMode = "client" | "server";
 
 const AI_MODELS = {
   fast: { id: "@cf/qwen/qwen2.5-coder-32b-instruct", label: "Qwen Coder 32B" },
+  glm: { id: "@cf/zai-org/glm-4.7-flash", label: "GLM 4.7 Flash" },
   kimi: { id: "@cf/moonshotai/kimi-k2.6", label: "Kimi K2.6" },
   llama: { id: "@cf/meta/llama-3.3-70b-instruct-fp8-fast", label: "Llama 3.3 70B Fast" }
 } as const;
 type AiModelKey = keyof typeof AI_MODELS;
 
 function pickAiModel(value: unknown): AiModelKey {
-  return typeof value === "string" && value in AI_MODELS ? value as AiModelKey : "fast";
+  return typeof value === "string" && value in AI_MODELS ? value as AiModelKey : "glm";
 }
 type CompiledPayload = { svelte: string; mode: CompileMode; compileMs: number; warnings: Array<{ code: string; message: string }>; jsBytes: number; cssBytes: number; js: string; css: string };
 
