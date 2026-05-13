@@ -73,7 +73,20 @@ const AGENT_SOURCE = `<script>
 
 export const AgentHome: FC = () => (
   <html lang="en">
-    <head><meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" /><title>svelte-edge · agent code mode</title><style>{html([styles] as unknown as TemplateStringsArray)}</style></head>
+    <head><meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" /><title>svelte-edge · agent code mode</title>
+        <meta name="description" content="Chat with an agent that writes Svelte 5, compiles it on Cloudflare Workers, and embeds the component inline." />
+        <meta property="og:type" content="website" />
+        <meta property="og:url" content="https://svelte-edge.coey.dev/" />
+        <meta property="og:title" content="svelte-edge" />
+        <meta property="og:description" content="Agents can write Svelte now: chat → Svelte 5 → edge bundle → inline UI." />
+        <meta property="og:image" content="https://svelte-edge.coey.dev/og/index.svg" />
+        <meta property="og:image:width" content="1200" />
+        <meta property="og:image:height" content="630" />
+        <meta property="og:image:alt" content="svelte-edge: Agents can write Svelte now." />
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content="svelte-edge" />
+        <meta name="twitter:description" content="Agents can write Svelte now: chat → Svelte 5 → edge bundle → inline UI." />
+        <meta name="twitter:image" content="https://svelte-edge.coey.dev/og/index.svg" /><style>{html([styles] as unknown as TemplateStringsArray)}</style></head>
     <body class="min-h-screen"><Sidebar current="/" /><MobileNav current="/" />
       <main class="layout-main agent-main">
         <header class="simple-hero"><div><p class="system-label">AGENT CODE MODE</p><h1>Chat with an agent that writes Svelte.</h1><p>Ask for a small interface. The agent writes Svelte 5, compiles it on Cloudflare Workers, and embeds the working component directly in the chat.</p><TopNav active="agent" /></div><a class="github-icon" href="https://github.com/acoyfellow/svelte-edge" aria-label="GitHub"><svg viewBox="0 0 24 24"><path fill="currentColor" d="M12 .5a12 12 0 0 0-3.79 23.39c.6.11.82-.26.82-.58v-2.02c-3.34.73-4.04-1.61-4.04-1.61-.55-1.39-1.34-1.76-1.34-1.76-1.09-.75.08-.73.08-.73 1.2.08 1.84 1.24 1.84 1.24 1.07 1.83 2.81 1.3 3.49.99.11-.78.42-1.3.76-1.6-2.67-.3-5.47-1.34-5.47-5.95 0-1.31.47-2.39 1.24-3.23-.12-.3-.54-1.52.12-3.18 0 0 1.01-.32 3.3 1.23a11.5 11.5 0 0 1 6 0c2.29-1.55 3.3-1.23 3.3-1.23.66 1.66.24 2.88.12 3.18.77.84 1.23 1.92 1.23 3.23 0 4.62-2.81 5.64-5.49 5.94.43.37.81 1.1.81 2.22v3.29c0 .32.22.7.83.58A12 12 0 0 0 12 .5Z"/></svg></a></header>
@@ -110,6 +123,10 @@ export const Shell: FC<ShellProps> = ({ initialSource, activeExample }) => {
         <meta charset="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <title>svelte-edge playground</title>
+        <meta name="description" content="Compile Svelte 5 source on Cloudflare Workers into edge bundles." />
+        <meta property="og:image" content="https://svelte-edge.coey.dev/og/index.svg" />
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:image" content="https://svelte-edge.coey.dev/og/index.svg" />
         <style>{styles}</style>
       </head>
       <body class="min-h-screen">
@@ -219,6 +236,10 @@ const PageChrome: FC<{ title: string; active: "playground" | "examples" | "docs"
       <meta charset="utf-8" />
       <meta name="viewport" content="width=device-width, initial-scale=1" />
       <title>{title} · svelte-edge</title>
+      <meta name="description" content="svelte-edge compiles Svelte 5 source on Cloudflare Workers into edge bundles." />
+      <meta property="og:image" content="https://svelte-edge.coey.dev/og/index.svg" />
+      <meta name="twitter:card" content="summary_large_image" />
+      <meta name="twitter:image" content="https://svelte-edge.coey.dev/og/index.svg" />
       <style>{styles}</style>
     </head>
     <body class="min-h-screen">

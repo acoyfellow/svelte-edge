@@ -24,3 +24,7 @@ workers_dev = true
 
 [ai]
 binding = "AI"
+
+routes = [
+  { pattern = "svelte-edge.coey.dev", custom_domain = true }
+]
