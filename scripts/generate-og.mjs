@@ -1,40 +1,19 @@
-import { writeFile, mkdir } from 'node:fs/promises';
-import { join } from 'node:path';
+import { mkdir, writeFile } from 'node:fs/promises';
+import { execFileSync } from 'node:child_process';
 
 const outDir = new URL('../public/og/', import.meta.url);
 await mkdir(outDir, { recursive: true });
-
+const svgPath = new URL('index.svg', outDir);
+const pngPath = new URL('index.png', outDir);
 const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
-  <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#ffffff"/>
-      <stop offset="0.62" stop-color="#fff7ed"/>
-      <stop offset="1" stop-color="#ffe6d6"/>
-    </linearGradient>
-    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="18" stdDeviation="22" flood-color="#2c2418" flood-opacity="0.16"/></filter>
-  </defs>
-  <rect width="1200" height="630" fill="url(#bg)"/>
-  <circle cx="1040" cy="70" r="220" fill="#ff5a1f" opacity="0.14"/>
-  <circle cx="120" cy="560" r="230" fill="#5c7cfa" opacity="0.10"/>
-  <rect x="64" y="64" width="1072" height="502" rx="36" fill="#ffffff" stroke="#111113" stroke-opacity="0.12" filter="url(#shadow)"/>
-  <rect x="64" y="64" width="12" height="502" rx="6" fill="#ff5a1f"/>
+  <defs><linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset="0.62" stop-color="#fff7ed"/><stop offset="1" stop-color="#ffe6d6"/></linearGradient><filter id="shadow" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="18" stdDeviation="22" flood-color="#2c2418" flood-opacity="0.16"/></filter></defs>
+  <rect width="1200" height="630" fill="url(#bg)"/><circle cx="1040" cy="70" r="220" fill="#ff5a1f" opacity="0.14"/><circle cx="120" cy="560" r="230" fill="#5c7cfa" opacity="0.10"/>
+  <rect x="64" y="64" width="1072" height="502" rx="36" fill="#ffffff" stroke="#111113" stroke-opacity="0.12" filter="url(#shadow)"/><rect x="64" y="64" width="12" height="502" rx="6" fill="#ff5a1f"/>
   <text x="118" y="138" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="25" font-weight="700" letter-spacing="7" fill="#ff5a1f">SVELTE EDGE</text>
-  <text x="118" y="238" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="78" font-weight="700" letter-spacing="-4" fill="#111113">Agents can write</text>
-  <text x="118" y="326" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="78" font-weight="700" letter-spacing="-4" fill="#111113">Svelte now.</text>
+  <text x="118" y="238" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="78" font-weight="700" letter-spacing="-4" fill="#111113">Agents can write</text><text x="118" y="326" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="78" font-weight="700" letter-spacing="-4" fill="#111113">Svelte now.</text>
   <text x="118" y="396" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="34" font-weight="500" fill="#5f5a52">Chat → Svelte 5 → edge bundle → inline UI</text>
-  <g transform="translate(785 170)">
-    <rect width="270" height="260" rx="26" fill="#fffaf6" stroke="#111113" stroke-opacity="0.14"/>
-    <text x="34" y="62" font-family="Inter, ui-sans-serif, system-ui" font-size="27" font-weight="700" fill="#111113">Choose a plan</text>
-    <rect x="34" y="92" width="202" height="44" rx="14" fill="#fff" stroke="#111113" stroke-opacity="0.12"/>
-    <circle cx="58" cy="114" r="8" fill="none" stroke="#ff5a1f" stroke-width="3"/>
-    <text x="78" y="123" font-family="Inter, ui-sans-serif, system-ui" font-size="18" fill="#111113">Starter</text>
-    <rect x="34" y="148" width="202" height="44" rx="14" fill="#fff4e9" stroke="#ff5a1f" stroke-opacity="0.45"/>
-    <circle cx="58" cy="170" r="8" fill="#ff5a1f"/>
-    <text x="78" y="179" font-family="Inter, ui-sans-serif, system-ui" font-size="18" font-weight="700" fill="#111113">Pro</text>
-    <rect x="34" y="204" width="202" height="36" rx="14" fill="#ff5a1f"/>
-    <text x="88" y="228" font-family="Inter, ui-sans-serif, system-ui" font-size="17" font-weight="700" fill="#fff">Use Pro</text>
-  </g>
+  <g transform="translate(785 170)"><rect width="270" height="260" rx="26" fill="#fffaf6" stroke="#111113" stroke-opacity="0.14"/><text x="34" y="62" font-family="Inter, ui-sans-serif, system-ui" font-size="27" font-weight="700" fill="#111113">Choose a plan</text><rect x="34" y="92" width="202" height="44" rx="14" fill="#fff" stroke="#111113" stroke-opacity="0.12"/><circle cx="58" cy="114" r="8" fill="none" stroke="#ff5a1f" stroke-width="3"/><text x="78" y="123" font-family="Inter, ui-sans-serif, system-ui" font-size="18" fill="#111113">Starter</text><rect x="34" y="148" width="202" height="44" rx="14" fill="#fff4e9" stroke="#ff5a1f" stroke-opacity="0.45"/><circle cx="58" cy="170" r="8" fill="#ff5a1f"/><text x="78" y="179" font-family="Inter, ui-sans-serif, system-ui" font-size="18" font-weight="700" fill="#111113">Pro</text><rect x="34" y="204" width="202" height="36" rx="14" fill="#ff5a1f"/><text x="88" y="228" font-family="Inter, ui-sans-serif, system-ui" font-size="17" font-weight="700" fill="#fff">Use Pro</text></g>
   <text x="118" y="505" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="24" font-weight="600" fill="#706b63">svelte-edge.coey.dev</text>
 </svg>`;
-await writeFile(new URL('index.svg', outDir), svg);
-console.log(join(outDir.pathname, 'index.svg'));
+await writeFile(svgPath, svg);
+try { execFileSync('npx', ['sharp-cli', '-i', svgPath.pathname, '-o', pngPath.pathname], { stdio: 'inherit' }); } catch { console.warn('sharp-cli unavailable; kept SVG only'); }

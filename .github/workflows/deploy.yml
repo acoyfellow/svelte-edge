@@ -21,7 +21,7 @@ jobs:
       - run: npm run report
       - run: npm run build
       - name: Deploy Worker
-        run: npx wrangler deploy
+        run: npx wrangler deploy --domain svelte-edge.coey.dev
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}

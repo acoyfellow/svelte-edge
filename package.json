@@ -13,7 +13,8 @@
     "build": "npm run css && wrangler deploy --dry-run --outdir dist",
     "bench:http": "tsx scripts/bench-http.ts",
     "bench:concurrent": "tsx scripts/bench-concurrent.ts",
-    "css": "tailwindcss -i ./src/input.css -o ./src/styles.css --minify && node scripts/generate-styles.mjs"
+    "css": "npm run og && tailwindcss -i ./src/input.css -o ./src/styles.css --minify && node scripts/generate-styles.mjs",
+    "og": "node scripts/generate-og.mjs"
   },
   "dependencies": {
     "hono": "^4.12.18",
@@ -23,6 +24,7 @@
     "@cloudflare/workers-types": "latest",
     "@tailwindcss/cli": "^4.3.0",
     "@types/node": "^25.7.0",
+    "sharp-cli": "^5.2.0",
     "tailwindcss": "^4.3.0",
     "tsx": "latest",
     "typescript": "latest",
