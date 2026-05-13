@@ -29,5 +29,15 @@
     "tsx": "latest",
     "typescript": "latest",
     "wrangler": "latest"
-  }
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/acoyfellow/svelte-edge.git"
+  },
+  "bugs": {
+    "url": "https://github.com/acoyfellow/svelte-edge/issues"
+  },
+  "homepage": "https://svelte-edge.coey.dev",
+  "keywords": "[\"svelte\",\"cloudflare-workers\",\"workers-ai\",\"edge\",\"agents\",\"hono\"]",
+  "license": "MIT"
 }
