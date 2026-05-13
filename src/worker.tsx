@@ -1,6 +1,6 @@
 import { compile, VERSION } from "svelte/compiler";
 import { renderToString } from "hono/jsx/dom/server";
-import { Shell, ExamplesIndex, ExampleDetail, DocsIndex, DocPageView } from "./ui";
+import { AgentHome, Shell, ExamplesIndex, ExampleDetail, DocsIndex, DocPageView } from "./ui";
 import { EXAMPLES, getExample } from "./examples";
 // `svelte/internal/server` has no public type declarations; we depend on the runtime export only.
 // @ts-expect-error - private subpath; only used to provide the `$` namespace to evaluated SSR output.
@@ -189,6 +189,11 @@ export default {
       }
       if (request.method === "GET" && url.pathname === "/") {
         const example = url.searchParams.get("example");
+        if (example) return new Response(indexHtml(getExample(example)?.source, example), { headers: { "content-type": "text/html; charset=utf-8", ...CORS_HEADERS } });
+        return new Response(renderToString(<AgentHome />), { headers: { "content-type": "text/html; charset=utf-8", ...CORS_HEADERS } });
+      }
+      if (request.method === "GET" && url.pathname === "/playground") {
+        const example = url.searchParams.get("example");
         return new Response(indexHtml(example ? getExample(example)?.source : undefined, example ?? undefined), { headers: { "content-type": "text/html; charset=utf-8", ...CORS_HEADERS } });
       }
       if (request.method === "GET" && url.pathname === "/examples") return new Response(renderToString(<ExamplesIndex examples={EXAMPLES} />), { headers: { "content-type": "text/html; charset=utf-8", ...CORS_HEADERS } });
@@ -229,16 +234,17 @@ export default {
         const body = await request.json().catch(() => null) as { prompt?: string } | null;
         const prompt = body?.prompt?.trim();
         if (!prompt) throw new HttpError("empty_prompt", "prompt is required", 400);
-        const aiResult = await env.AI.run("@cf/meta/llama-3.1-8b-instruct", {
+        const aiResult = await env.AI.run("@cf/moonshotai/kimi-k2.6", {
           messages: [
             { role: "system", content: "You write Svelte 5 components using runes. Return only .svelte source. No markdown. No explanation. Rules: use let x = $state(initial) for mutable state; use let x = $derived(expression) for derived values; use let { prop = defaultValue } = $props() for props; never use export let; never use $: reactive labels; use onclick/onsubmit event attributes; keep components self-contained with <style>. If the UI should submit data, use parent.postMessage({ type: 'svelte-edge:submit', value }, '*')." },
             { role: "user", content: prompt }
           ]
         }) as { response?: string };
-        const source = extractSvelte(aiResult.response ?? "");
-        if (!source.includes("<")) throw new HttpError("bad_ai_output", "model did not return Svelte source", 502, { response: aiResult.response });
+        const raw = (aiResult as { response?: string; result?: { response?: string }; choices?: Array<{ message?: { content?: string } }> }).response ?? (aiResult as { result?: { response?: string } }).result?.response ?? (aiResult as { choices?: Array<{ message?: { content?: string } }> }).choices?.[0]?.message?.content ?? "";
+        const source = extractSvelte(raw);
+        if (!source.includes("<")) throw new HttpError("bad_ai_output", "model did not return Svelte source", 502, { response: raw, aiResult });
         const bundle = await createBundleManifest(source, env, ctx, url.origin);
-        return json({ source, bundle, model: "@cf/meta/llama-3.1-8b-instruct", requestId: rid });
+        return json({ source, bundle, model: "@cf/moonshotai/kimi-k2.6", requestId: rid });
       }
 
       const bundleMatch = url.pathname.match(/^\/(?:bundles|artifacts)\/([a-f0-9]{64})\/(client\.js|server\.js|style\.css|manifest\.json|preview\.html)$/);

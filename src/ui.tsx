@@ -10,7 +10,8 @@ const DEFAULT_SAMPLE = `<script>let count = $state(0);</script>\n<button onclick
 type ShellProps = { initialSource?: string; activeExample?: string };
 
 const NAV_ITEMS = [
-  { href: "/", label: "Playground" },
+  { href: "/", label: "Agent demo" },
+  { href: "/playground", label: "Playground" },
   { href: "/examples", label: "Examples" },
   { href: "/docs", label: "Docs" },
   { href: "/docs/tutorial-first-edge-widget", label: "First widget" },
@@ -18,9 +19,10 @@ const NAV_ITEMS = [
   { href: "/docs/explanation-bundles-not-repl", label: "Why bundles" }
 ];
 
-const TopNav: FC<{ active?: "playground" | "examples" | "docs" }> = ({ active }) => (
+const TopNav: FC<{ active?: "agent" | "playground" | "examples" | "docs" }> = ({ active }) => (
   <nav class="top-nav">
-    <a href="/" class={active === "playground" ? "nav-link active" : "nav-link"}>Playground</a>
+    <a href="/" class={active === "agent" ? "nav-link active" : "nav-link"}>Agent demo</a>
+    <a href="/playground" class={active === "playground" ? "nav-link active" : "nav-link"}>Playground</a>
     <a href="/examples" class={active === "examples" ? "nav-link active" : "nav-link"}>Examples</a>
     <a href="/docs" class={active === "docs" ? "nav-link active" : "nav-link"}>Docs</a>
   </nav>
@@ -45,6 +47,62 @@ const MobileNav: FC<{ current?: string }> = ({ current }) => (
   </details>
 );
 
+
+const AGENT_SOURCE = `<script>
+  let records = $state([
+    { id: 'old', name: 'old.example.com', type: 'A', value: '192.0.2.1', selected: true },
+    { id: 'test', name: 'test.example.com', type: 'CNAME', value: 'workers.dev', selected: true },
+    { id: 'stage', name: 'staging.example.com', type: 'A', value: '192.0.2.2', selected: false }
+  ]);
+  let selected = $derived(records.filter((record) => record.selected));
+  function submit() {
+    parent.postMessage({ type: 'svelte-edge:submit', value: { selectedRecords: selected.map((record) => record.id) } }, '*');
+  }
+</script>
+<section>
+  <h2>Review DNS cleanup</h2>
+  <p>{selected.length} records selected for deletion.</p>
+  {#each records as record}
+    <label class="row"><input type="checkbox" bind:checked={record.selected} /><span><strong>{record.name}</strong><small>{record.type} → {record.value}</small></span></label>
+  {/each}
+  <button disabled={selected.length === 0} onclick={submit}>Continue with {selected.length} records</button>
+</section>
+<style>
+  section{font:15px system-ui;max-width:560px;padding:24px;border-radius:24px;background:#fff;border:1px solid #e5e0d8;box-shadow:0 18px 50px #0001}.row{display:flex;gap:12px;align-items:center;padding:12px 0;border-top:1px solid #eee}small{display:block;color:#777}button{margin-top:18px;width:100%;border:0;border-radius:14px;padding:12px;background:#ff5a1f;color:white;font-weight:800}button:disabled{background:#ddd}
+</style>`;
+
+export const AgentHome: FC = () => (
+  <html lang="en">
+    <head><meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" /><title>svelte-edge · agent code mode</title><style>{styles}</style></head>
+    <body class="min-h-screen"><Sidebar current="/" /><MobileNav current="/" />
+      <main class="layout-main">
+        <header class="simple-hero"><div><p class="system-label">AGENT CODE MODE</p><h1>Chat with an agent that writes Svelte.</h1><p>The agent can generate Svelte 5, compile it on Cloudflare Workers, embed the UI inline, and receive structured input back from the component.</p><TopNav active="agent" /></div><a class="github-icon" href="https://github.com/acoyfellow/svelte-edge" aria-label="GitHub"><svg viewBox="0 0 24 24"><path fill="currentColor" d="M12 .5a12 12 0 0 0-3.79 23.39c.6.11.82-.26.82-.58v-2.02c-3.34.73-4.04-1.61-4.04-1.61-.55-1.39-1.34-1.76-1.34-1.76-1.09-.75.08-.73.08-.73 1.2.08 1.84 1.24 1.84 1.24 1.07 1.83 2.81 1.3 3.49.99.11-.78.42-1.3.76-1.6-2.67-.3-5.47-1.34-5.47-5.95 0-1.31.47-2.39 1.24-3.23-.12-.3-.54-1.52.12-3.18 0 0 1.01-.32 3.3 1.23a11.5 11.5 0 0 1 6 0c2.29-1.55 3.3-1.23 3.3-1.23.66 1.66.24 2.88.12 3.18.77.84 1.23 1.92 1.23 3.23 0 4.62-2.81 5.64-5.49 5.94.43.37.81 1.1.81 2.22v3.29c0 .32.22.7.83.58A12 12 0 0 0 12 .5Z"/></svg></a></header>
+        <section class="agent-shell mt-6">
+          <div class="chat-card"><div id="chat-log" class="chat-log"><div class="msg user"><b>User</b><p>Review these DNS records before deletion.</p></div><div class="msg agent"><b>Agent</b><p>I need confirmation before taking action. I’ll write a small Svelte review UI and embed it here.</p></div><div class="msg code"><b>Agent code mode</b><pre id="agent-source"></pre></div><div class="msg system"><b>System</b><p id="agent-status">Compiling seeded Svelte 5 bundle…</p></div><div class="msg component"><iframe id="agent-preview" sandbox="allow-scripts"></iframe></div></div><form id="chat-form" class="chat-form"><input id="chat-input" placeholder="Ask the agent to make a UI…" value="Make a discount approval UI with plan choices" /><button>Send</button></form></div>
+          <aside class="agent-side"><h2>Bundle</h2><div id="agent-bundle" class="bundle-list">Compiling…</div><p class="muted">Inline components use <code>parent.postMessage</code> to send structured data back into the chat.</p><a class="secondary-button" href="/playground">Open playground</a></aside>
+        </section>
+      </main>
+      <script>{html`
+const seededSource = ${JSON.stringify(AGENT_SOURCE)};
+const chatLog = document.getElementById('chat-log');
+const sourceEl = document.getElementById('agent-source');
+const preview = document.getElementById('agent-preview');
+const statusEl = document.getElementById('agent-status');
+const bundleEl = document.getElementById('agent-bundle');
+sourceEl.textContent = seededSource;
+function escapeHtml(s){return s.replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));}
+function addMsg(kind, title, body){const div=document.createElement('div');div.className='msg '+kind;div.innerHTML='<b>'+title+'</b><p>'+body+'</p>';chatLog.appendChild(div);chatLog.scrollTop=chatLog.scrollHeight;}
+function bundleRows(data){const a=data.bundles; bundleEl.innerHTML='<div class="bundle-summary"><strong>Bundle '+data.id+'</strong><span>'+data.sourceHash+'</span></div>'+['client','server','css','preview','manifest'].map(k=>'<div class="bundle-row"><div><strong>'+k+'</strong><span>'+a[k]+'</span></div><div class="bundle-actions"><a href="'+a[k]+'" target="_blank">Open</a></div></div>').join('');}
+function previewDoc(js, css){return '<!doctype html><html><head><meta charset="utf-8"><script type="importmap">'+JSON.stringify({imports:{svelte:'https://esm.sh/svelte@${VERSION}','svelte/':'https://esm.sh/svelte@${VERSION}/'}})+'<'+'/script><style>body{font-family:Inter,system-ui;margin:0;padding:24px;background:#fffaf6}</style><style>'+css.replace(/<\\/style/gi,'<\\\\/style')+'</style></head><body><div id="app"></div><script type="module">import Component from '+JSON.stringify('data:application/javascript;charset=utf-8,'+encodeURIComponent(js))+'; import { mount } from "svelte"; mount(Component,{target:document.getElementById("app")});<'+'/script></body></html>';}
+async function compileAndRender(source){sourceEl.textContent=source; statusEl.textContent='Compiling Svelte 5 bundle…'; const res=await fetch('/bundles',{method:'POST',headers:{'content-type':'text/plain'},body:source}); const data=await res.json(); if(!res.ok){statusEl.textContent='Compile failed. Keeping last working component.'; addMsg('system','Compiler',escapeHtml(data.error?.message||'Compile failed')); return null;} statusEl.textContent='Compiled on Cloudflare Workers. Preview mounted inline.'; bundleRows(data); preview.srcdoc=previewDoc(data.client.js,data.client.css||''); return data;}
+window.addEventListener('message', e=>{ if(e.data?.type==='svelte-edge:submit'){ addMsg('user','Inline UI result','<pre>'+escapeHtml(JSON.stringify(e.data.value,null,2))+'</pre>'); addMsg('agent','Agent','Got it. I would now call the next tool with that structured input.'); }});
+document.getElementById('chat-form').onsubmit=async e=>{e.preventDefault(); const input=document.getElementById('chat-input'); const prompt=input.value.trim(); if(!prompt)return; addMsg('user','User',escapeHtml(prompt)); addMsg('agent','Agent','I’ll write a Svelte 5 component for that and compile it inline.'); statusEl.textContent='Calling Kimi K2.6 via Workers AI…'; const res=await fetch('/agent/generate-ui',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({prompt})}); const data=await res.json(); if(!res.ok){addMsg('system','Generation failed',escapeHtml(data.error?.message||'Generation failed')); statusEl.textContent='Generation failed'; return;} await compileAndRender(data.source);};
+compileAndRender(seededSource);
+      `}</script>
+    </body>
+  </html>
+);
+
 export const Shell: FC<ShellProps> = ({ initialSource, activeExample }) => {
   const sample = initialSource ?? DEFAULT_SAMPLE;
   return (
@@ -56,8 +114,8 @@ export const Shell: FC<ShellProps> = ({ initialSource, activeExample }) => {
         <style>{styles}</style>
       </head>
       <body class="min-h-screen">
-        <Sidebar current="/" />
-        <MobileNav current="/" />
+        <Sidebar current="/playground" />
+        <MobileNav current="/playground" />
         <main class="layout-main">
           <header class="simple-hero">
             <div>
