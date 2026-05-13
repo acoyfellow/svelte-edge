@@ -12,7 +12,7 @@ export interface Env {
   SVELTE_EDGE_CACHE?: KVNamespace;
   // Optional: when bound, /compile?mode=... writes go through a Durable
   // Object that single-flights duplicate writers for the same cache key.
-  // See src/cache-coordinator.ts and DO-COORDINATOR.md.
+  // See src/cache-coordinator.ts.
   SVELTE_EDGE_COORDINATOR?: DurableObjectNamespace;
   AI?: Ai;
 }

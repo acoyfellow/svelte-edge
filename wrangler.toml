@@ -11,7 +11,7 @@ workers_dev = true
 # id = "..."
 
 # Optional: Durable Object single-flight coordinator for compile cache writes.
-# See DO-COORDINATOR.md for the design and tradeoffs. To enable, uncomment
+# Optional compile-cache write coordinator. To enable, uncomment
 # both blocks below and redeploy.
 #
 # [[durable_objects.bindings]]
