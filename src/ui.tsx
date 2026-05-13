@@ -83,7 +83,7 @@ export const AgentHome: FC = () => (
         </section>
       </main>
       <script>{html`
-const seededSource = ${JSON.stringify(AGENT_SOURCE)};
+const seededSource = ${html([JSON.stringify(AGENT_SOURCE)] as unknown as TemplateStringsArray)};
 const chatLog = document.getElementById('chat-log');
 const sourceEl = document.getElementById('agent-source');
 const preview = document.getElementById('agent-preview');
