@@ -21,6 +21,17 @@ export interface Env {
 export { CacheCoordinator } from "./cache-coordinator";
 
 type CompileMode = "client" | "server";
+
+const AI_MODELS = {
+  fast: { id: "@cf/qwen/qwen2.5-coder-32b-instruct", label: "Qwen Coder 32B" },
+  kimi: { id: "@cf/moonshotai/kimi-k2.6", label: "Kimi K2.6" },
+  llama: { id: "@cf/meta/llama-3.3-70b-instruct-fp8-fast", label: "Llama 3.3 70B Fast" }
+} as const;
+type AiModelKey = keyof typeof AI_MODELS;
+
+function pickAiModel(value: unknown): AiModelKey {
+  return typeof value === "string" && value in AI_MODELS ? value as AiModelKey : "fast";
+}
 type CompiledPayload = { svelte: string; mode: CompileMode; compileMs: number; warnings: Array<{ code: string; message: string }>; jsBytes: number; cssBytes: number; js: string; css: string };
 
 const MAX_SOURCE_BYTES = 256 * 1024; // 256 KiB
@@ -237,20 +248,24 @@ export default {
 
       if (request.method === "POST" && url.pathname === "/agent/generate-ui") {
         if (!env.AI) throw new HttpError("ai_not_configured", "Workers AI binding is not configured", 501);
-        const body = await request.json().catch(() => null) as { prompt?: string } | null;
+        const body = await request.json().catch(() => null) as { prompt?: string; model?: string } | null;
         const prompt = body?.prompt?.trim();
+        const modelKey = pickAiModel(body?.model);
+        const selectedModel = AI_MODELS[modelKey];
         if (!prompt) throw new HttpError("empty_prompt", "prompt is required", 400);
-        const aiResult = await env.AI.run("@cf/moonshotai/kimi-k2.6", {
+        const aiStartedAt = performance.now();
+        const aiResult = await env.AI.run(selectedModel.id, {
           messages: [
-            { role: "system", content: "You write Svelte 5 components using runes. Return only .svelte source. No markdown. No explanation. Rules: use let x = $state(initial) for mutable state; use let x = $derived(expression) for derived values; use let { prop = defaultValue } = $props() for props; never use export let; never use $: reactive labels; use onclick/onsubmit event attributes; keep components self-contained with <style>. If the UI should submit data, use parent.postMessage({ type: 'svelte-edge:submit', value }, '*')." },
+            { role: "system", content: "You write Svelte 5 components using runes. Return only complete .svelte source. No markdown. No explanation. Rules: use let x = $state(initial) for mutable state; use let x = $derived(expression) for derived values; use let { prop = defaultValue } = $props() for props; never use export let; never use $: reactive labels; use Svelte 5 event attributes like onclick and onsubmit; never use on:click or on:submit; keep components self-contained with <style>. If the UI should submit data, use parent.postMessage({ type: 'svelte-edge:submit', value }, '*')." },
             { role: "user", content: prompt }
           ]
         }) as { response?: string };
         const raw = (aiResult as { response?: string; result?: { response?: string }; choices?: Array<{ message?: { content?: string } }> }).response ?? (aiResult as { result?: { response?: string } }).result?.response ?? (aiResult as { choices?: Array<{ message?: { content?: string } }> }).choices?.[0]?.message?.content ?? "";
         const source = extractSvelte(raw);
+        const aiMs = +(performance.now() - aiStartedAt).toFixed(2);
         if (!source.includes("<")) throw new HttpError("bad_ai_output", "model did not return Svelte source", 502, { response: raw, aiResult });
         const bundle = await createBundleManifest(source, env, ctx, url.origin);
-        return json({ source, bundle, model: "@cf/moonshotai/kimi-k2.6", requestId: rid });
+        return json({ source, bundle, model: selectedModel.id, modelKey, modelLabel: selectedModel.label, timings: { aiMs, clientCompileMs: bundle.timings.clientCompileMs, serverCompileMs: bundle.timings.serverCompileMs }, requestId: rid });
       }
 
       const bundleMatch = url.pathname.match(/^\/(?:bundles|artifacts)\/([a-f0-9]{64})\/(client\.js|server\.js|style\.css|manifest\.json|preview\.html)$/);
