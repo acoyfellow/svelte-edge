@@ -50,25 +50,25 @@ const MobileNav: FC<{ current?: string }> = ({ current }) => (
 
 const AGENT_SOURCE = `<script>
   let records = $state([
-    { id: 'old', name: 'old.example.com', type: 'A', value: '192.0.2.1', selected: true },
-    { id: 'test', name: 'test.example.com', type: 'CNAME', value: 'workers.dev', selected: true },
-    { id: 'stage', name: 'staging.example.com', type: 'A', value: '192.0.2.2', selected: false }
+    { id: 'starter', name: 'Starter', price: '$19/mo', description: 'For prototypes', selected: false },
+    { id: 'pro', name: 'Pro', price: '$49/mo', description: 'For growing teams', selected: true },
+    { id: 'business', name: 'Business', price: '$149/mo', description: 'For production workflows', selected: false }
   ]);
-  let selected = $derived(records.filter((record) => record.selected));
+  let selected = $derived(records.find((record) => record.selected) ?? records[1]);
   function submit() {
-    parent.postMessage({ type: 'svelte-edge:submit', value: { selectedRecords: selected.map((record) => record.id) } }, '*');
+    parent.postMessage({ type: 'svelte-edge:submit', value: { plan: selected.id, price: selected.price } }, '*');
   }
 </script>
 <section>
-  <h2>Review DNS cleanup</h2>
-  <p>{selected.length} records selected for deletion.</p>
+  <h2>Choose a plan</h2>
+  <p>Selected: {selected.name} · {selected.price}</p>
   {#each records as record}
-    <label class="row"><input type="checkbox" bind:checked={record.selected} /><span><strong>{record.name}</strong><small>{record.type} → {record.value}</small></span></label>
+    <label class="row"><input type="radio" name="plan" checked={record.selected} onchange={() => { records.forEach((item) => item.selected = item.id === record.id); }} /><span><strong>{record.name}</strong><small>{record.price} · {record.description}</small></span></label>
   {/each}
-  <button disabled={selected.length === 0} onclick={submit}>Continue with {selected.length} records</button>
+  <button disabled={selected.length === 0} onclick={submit}>Use {selected.name}</button>
 </section>
 <style>
-  section{font:15px system-ui;max-width:560px;padding:24px;border-radius:24px;background:#fff;border:1px solid #e5e0d8;box-shadow:0 18px 50px #0001}.row{display:flex;gap:12px;align-items:center;padding:12px 0;border-top:1px solid #eee}small{display:block;color:#777}button{margin-top:18px;width:100%;border:0;border-radius:14px;padding:12px;background:#ff5a1f;color:white;font-weight:800}button:disabled{background:#ddd}
+  section{font:15px system-ui;max-width:560px;padding:24px;border-radius:24px;background:#fff;border:1px solid #e5e0d8;box-shadow:0 18px 50px #0001}.row{display:flex;gap:12px;align-items:center;padding:12px 0;border-top:1px solid #eee}small{display:block;color:#777}button{margin-top:18px;width:100%;border:0;border-radius:14px;padding:12px;background:#ff5a1f;color:white;font-weight:800}
 </style>`;
 
 export const AgentHome: FC = () => (
@@ -78,7 +78,7 @@ export const AgentHome: FC = () => (
       <main class="layout-main">
         <header class="simple-hero"><div><p class="system-label">AGENT CODE MODE</p><h1>Chat with an agent that writes Svelte.</h1><p>The agent can generate Svelte 5, compile it on Cloudflare Workers, embed the UI inline, and receive structured input back from the component.</p><TopNav active="agent" /></div><a class="github-icon" href="https://github.com/acoyfellow/svelte-edge" aria-label="GitHub"><svg viewBox="0 0 24 24"><path fill="currentColor" d="M12 .5a12 12 0 0 0-3.79 23.39c.6.11.82-.26.82-.58v-2.02c-3.34.73-4.04-1.61-4.04-1.61-.55-1.39-1.34-1.76-1.34-1.76-1.09-.75.08-.73.08-.73 1.2.08 1.84 1.24 1.84 1.24 1.07 1.83 2.81 1.3 3.49.99.11-.78.42-1.3.76-1.6-2.67-.3-5.47-1.34-5.47-5.95 0-1.31.47-2.39 1.24-3.23-.12-.3-.54-1.52.12-3.18 0 0 1.01-.32 3.3 1.23a11.5 11.5 0 0 1 6 0c2.29-1.55 3.3-1.23 3.3-1.23.66 1.66.24 2.88.12 3.18.77.84 1.23 1.92 1.23 3.23 0 4.62-2.81 5.64-5.49 5.94.43.37.81 1.1.81 2.22v3.29c0 .32.22.7.83.58A12 12 0 0 0 12 .5Z"/></svg></a></header>
         <section class="agent-shell mt-6">
-          <div class="chat-card"><div id="chat-log" class="chat-log"><div class="msg user"><b>User</b><p>Review these DNS records before deletion.</p></div><div class="msg agent"><b>Agent</b><p>I need confirmation before taking action. I’ll write a small Svelte review UI and embed it here.</p></div><div class="msg code"><b>Agent code mode</b><pre id="agent-source"></pre></div><div class="msg system"><b>System</b><p id="agent-status">Compiling seeded Svelte 5 bundle…</p></div><div class="msg component"><iframe id="agent-preview" sandbox="allow-scripts"></iframe></div></div><form id="chat-form" class="chat-form"><input id="chat-input" placeholder="Ask the agent to make a UI…" value="Make a discount approval UI with plan choices" /><button>Send</button></form></div>
+          <div class="chat-card"><div id="chat-log" class="chat-log"><div class="msg user"><b>User</b><p>Help me choose a pricing plan for a small team.</p></div><div class="msg agent"><b>Agent</b><p>I’ll generate a small plan picker so you can compare options and send back a structured choice.</p></div><div class="msg code"><b>Agent code mode</b><pre id="agent-source"></pre></div><div class="msg system"><b>System</b><p id="agent-status">Compiling seeded Svelte 5 bundle…</p></div><div class="msg component"><iframe id="agent-preview" sandbox="allow-scripts"></iframe></div></div><form id="chat-form" class="chat-form"><input id="chat-input" placeholder="Ask the agent to make a UI…" value="Make a pricing plan picker with Starter, Pro, and Business options" /><button>Send</button></form></div>
           <aside class="agent-side"><h2>Bundle</h2><div id="agent-bundle" class="bundle-list">Compiling…</div><p class="muted">Inline components use <code>parent.postMessage</code> to send structured data back into the chat.</p><a class="secondary-button" href="/playground">Open playground</a></aside>
         </section>
       </main>
@@ -133,7 +133,7 @@ export const Shell: FC<ShellProps> = ({ initialSource, activeExample }) => {
               <div><p class="system-label">SOURCE</p><h2>Svelte 5 component</h2></div>
               <div class="actions"><button id="generate-ui" class="secondary-button">Generate with Workers AI</button><button id="run-preview" class="primary-button">Run</button><button id="compile-server" class="secondary-button">Server JS</button></div>
             </div>
-            <div class="ai-row"><input id="ai-prompt" value="Make a compact Svelte 5 UI for reviewing DNS records before deletion. Use checkboxes and post selected records to the parent window." /></div>
+            <div class="ai-row"><input id="ai-prompt" value="Make a compact Svelte 5 UI for reviewing pricing plans before deletion. Use checkboxes and post selected records to the parent window." /></div>
             <textarea id="source" spellCheck={false} class="source-editor" rows={4}>{sample}</textarea>
           </section>
 
